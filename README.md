@@ -29,4 +29,4 @@ pytest tests/test_api.py
   "is_approved": true,
   "message": "Неверифицированный продавец, есть изображения"
 }
-```"
+```
