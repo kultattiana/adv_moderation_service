@@ -13,7 +13,7 @@ pip install -r requirements.txt
 
 ### Запуск сервера
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn main:app --reload --port 8000
 ```
 
 ### Запуск тестов
@@ -27,6 +27,6 @@ pytest tests/test_api.py
 ```json
 {
   "is_approved": true,
-  "message": "Неверифицированный продавец, есть изображения"
+  "message": "Advertisment is approved"
 }
 ```
