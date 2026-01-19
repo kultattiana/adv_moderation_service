@@ -9,7 +9,3 @@ class AdRequest(BaseModel):
     description: str = Field(..., min_length = 1, max_length = 10000, description = 'Описание товара')
     category: int = Field(..., ge = 0, le = 1000, description = 'Категория товара (от 0 до 100)')
     images_qty: int = Field(..., ge=0, le=20, description="Количество изображений от 0 до 20")
-
-class AdResponse(BaseModel):
-    is_approved: bool = Field(..., description="Результат модерации: True - одобрено, False - отклонено")
-    message: Optional[str] = Field(None, description="Сообщение о результате")
