@@ -3,4 +3,3 @@ from typing import Optional
 
 class AdResponse(BaseModel):
     is_approved: bool = Field(..., description="Результат модерации: True - одобрено, False - отклонено")
-    message: Optional[str] = Field(None, description="Сообщение о результате")
