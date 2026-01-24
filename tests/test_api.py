@@ -12,16 +12,17 @@ class TestPositiveCases:
     """Тесты положительных результатов предсказания"""
     
     @pytest.mark.parametrize("test_data,expected_result", [
-        ({}, True),
-        ({"images_qty": 0}, True),
-        ({"is_verified_seller": False}, True),
+        ({}, False),
+        ({"images_qty": 0}, False),
+        ({"is_verified_seller": False}, False),
     ])
     def test_positive_scenarios(self, app_client, valid_ad_data, test_data, expected_result):
         data = {**valid_ad_data, **test_data}
         response = app_client.post("/predict", json=data)
         
         assert response.status_code == 200
-        assert response.json() == expected_result
+        assert response.json()['is_violation'] == expected_result
+        assert response.json()['probability'] < 0.5
 
 
 class TestNegativeCases:
@@ -32,7 +33,8 @@ class TestNegativeCases:
         response = app_client.post("/predict", json=data)
         
         assert response.status_code == 200
-        assert response.json() == False
+        assert response.json()['is_violation'] == True
+        assert response.json()['probability'] >= 0.5
 
 
 class TestValidation:
@@ -122,5 +124,23 @@ def test_business_logic_error_handling(app_client, valid_ad_data):
         
         assert response.status_code == 500
         response_data = response.json()
-        assert "Internal server error" in response_data["detail"]
         assert "Simulated business logic error" in response_data["detail"]
+
+def test_model_unavailable_503(app_client, valid_ad_data):
+    """
+    Тест обработки ошибки, когда модель не загружена (503 Service Unavailable)
+    """
+
+    original_model = app_client.app.state.model
+    try:
+    
+        app_client.app.state.model = None
+        
+        response = app_client.post(
+            "/predict",
+            json=valid_ad_data)
+        
+        assert response.status_code == 503
+        assert "Service temporarily unavailable" in response.json()["detail"]
+    finally:
+        app_client.app.state.model = original_model

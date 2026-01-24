@@ -1,30 +1,58 @@
-from fastapi import APIRouter, HTTPException
+import sys
+sys.path.append('.')
+from fastapi import APIRouter, HTTPException, Depends, Request
 import logging
-from models.ad_request import AdRequest
-from models.ad_response import AdResponse
+from models.predict_request import PredictRequest
+from models.predict_response import PredictResponse
 from services.advertisements import AdvertisementService
+from sklearn.pipeline import Pipeline
+
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Prediction"])
 
 adv_service = AdvertisementService()
 
-@router.post("/predict")
-async def predict(request: AdRequest) -> bool:
+def get_model(request: Request):
+    return request.app.state.model
+
+    
+@router.post("/predict", response_model = PredictResponse)
+async def predict(request: PredictRequest, model: Pipeline = Depends(get_model)) -> PredictResponse:
     try:
-        logger.info(f'Processing ad moderation for seller: {request.seller_id}')
 
-        result = await adv_service.predict(request.is_verified_seller, request.images_qty)
-
-        logger.info(f"Ad moderation result for seller_id {request.seller_id}: {result}")
-
-        # if value_error:
-        #     logger.info('Business logic error')
-        #     raise ValueError('Simulated business logic error')
-
-        #return AdResponse(is_approved=result)
-        return result
-
+        if model is None:
+            raise HTTPException(
+                status_code=503,
+                detail="Model is not loaded. Service temporarily unavailable."
+            )
+        
+        logger.info(f"""Processing ad moderation request:\n
+                        seller_id - {request.seller_id}\n
+                        item_id - {request.item_id}\n
+                        name - {request.name}\n
+                        is_verified_seller - {request.is_verified_seller}\n
+                        description - {request.description}\n
+                        category - {request.category}\n
+                        images_qty - {request.images_qty}
+                        """)
+        
+        is_violation, probability = await adv_service.predict(model,
+                                                            request.seller_id,
+                                                            request.is_verified_seller,
+                                                            request.item_id,
+                                                            request.name,
+                                                            request.description,
+                                                            request.category,
+                                                            request.images_qty)
+        logger.info(
+            f"Ad moderation for seller_id {request.seller_id} item {request.item_id} (name: '{request.name}...'): "
+            f"violation={is_violation}, probability={probability:.3f}"
+        )
+        return PredictResponse(is_violation=is_violation, probability = probability)
+    
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f'Error processing ad moderation: {str(e)}')
         raise HTTPException(status_code=500, detail=f'Internal server error: {str(e)}')

@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional
 
-class AdRequest(BaseModel):
+class PredictRequest(BaseModel):
     seller_id: int = Field(..., gt = 0, description = 'Положительный ID продавца')
     is_verified_seller: bool = Field(..., description = 'Статус верификации продавца')
     item_id: int = Field(..., gt = 0, description = 'Положительный ID товара')
