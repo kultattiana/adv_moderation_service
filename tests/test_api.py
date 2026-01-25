@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
 from main import app
 from routers.predict import adv_service
-
+import warnings
 
 
 class TestPositiveCases:

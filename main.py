@@ -4,10 +4,25 @@ from routers import health, predict
 from model import load_model
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
+import os
+import warnings
+from dotenv import load_dotenv
+import logging
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+logger = logging.getLogger(__name__)
+
+load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    use_mlflow = os.getenv("USE_MLFLOW", "false").strip().lower() == "true"
+    source = "MLflow" if use_mlflow else "local file"
+    logger.info(f"Loading model from: {source}")
     app.state.model = load_model("model.pkl")
     yield
 

@@ -1,14 +1,19 @@
 import sys
 sys.path.append('.')
 from fastapi import APIRouter, HTTPException, Depends, Request
-import logging
 from models.predict_request import PredictRequest
 from models.predict_response import PredictResponse
 from services.advertisements import AdvertisementService
 from sklearn.pipeline import Pipeline
+import logging
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 logger = logging.getLogger(__name__)
+
 router = APIRouter(tags=["Prediction"])
 
 adv_service = AdvertisementService()
@@ -27,14 +32,9 @@ async def predict(request: PredictRequest, model: Pipeline = Depends(get_model))
                 detail="Model is not loaded. Service temporarily unavailable."
             )
         
-        logger.info(f"""Processing ad moderation request:\n
-                        seller_id - {request.seller_id}\n
-                        item_id - {request.item_id}\n
-                        name - {request.name}\n
-                        is_verified_seller - {request.is_verified_seller}\n
-                        description - {request.description}\n
-                        category - {request.category}\n
-                        images_qty - {request.images_qty}
+        logger.info(f"""Processing ad moderation request: seller_id - {request.seller_id}, item_id - {request.item_id}, name - {request.name}, 
+                            is_verified_seller - {request.is_verified_seller}, description - {request.description}, 
+                            category - {request.category}, images_qty - {request.images_qty}
                         """)
         
         is_violation, probability = await adv_service.predict(model,
