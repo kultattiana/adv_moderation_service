@@ -42,14 +42,11 @@ def register_model_in_mlflow():
     """Регистрирует модель в MLflow Model Registry"""
     try:
         
-        # Настройка MLflow
         mlflow.set_tracking_uri("sqlite:///mlflow.db")
         mlflow.set_experiment("moderation-model")
         
         with mlflow.start_run() as run:
-            # Обучаем модель
             model = train_model()
-            # Регистрируем модель
             log_model(
                 model, 
                 "model", 
@@ -59,13 +56,11 @@ def register_model_in_mlflow():
             
             client = MlflowClient()
             
-            # Находим последнюю версию модели
             model_versions = client.search_model_versions(
                 f"name='moderation-model' and run_id='{run.info.run_id}'"
             )
             
             if model_versions:
-                # Переводим модель на стадию Production
                 latest_version = model_versions[0].version
                 client.transition_model_version_stage(
                     name="moderation-model",

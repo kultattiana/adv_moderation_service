@@ -18,7 +18,7 @@ router = APIRouter(tags=["Prediction"])
 
 adv_service = AdvertisementService()
 
-def get_model(request: Request):
+def get_model(request: Request) -> Pipeline:
     return request.app.state.model
 
     

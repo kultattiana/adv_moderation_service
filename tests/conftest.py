@@ -10,9 +10,9 @@ import os
 
 @pytest.fixture(autouse=True)
 def setup_model():
-    """Фикстура, которая автоматически запускается перед каждым тестом"""
+    """Фикстура, которая инициализирует модель перед тестом"""
 
-    temp_model_path = 'test_model.pkl'
+    temp_model_path = 'model.pkl'
     try:
         model = load_model(temp_model_path)
         app.state.model = model

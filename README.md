@@ -2,7 +2,6 @@
 HTTP API for simple web-service of ad moderation. 
 HSE FCS Backend course project
 
-# ДЗ1
 ## Инструкции по запуску
 
 ### Установка зависимостей
@@ -38,7 +37,7 @@ pytest tests/test_api.py
 ### Пример ответа
 ```json
 {
-  "is_approved": true,
-  "message": "Advertisment is approved"
+  "is_violation": false,
+  "probability": 0.00000256
 }
 ```
