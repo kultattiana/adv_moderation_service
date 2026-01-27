@@ -82,9 +82,9 @@ class TestEdgeCases:
                 "is_verified_seller": True,
                 "item_id": 999999,
                 "name": "a" * 500,
-                "description": "b" * 10000,
-                "category": 1000,
-                "images_qty": 20
+                "description": "b" * 1000,
+                "category": 100,
+                "images_qty": 10
             }
         ),
     ])

@@ -49,7 +49,7 @@ def register_model_in_mlflow():
             model = train_model()
             log_model(
                 model, 
-                "model", 
+                name = "model", 
                 registered_model_name="moderation-model",
                 metadata={"suppress_pydantic_warnings": True}
             )
@@ -62,10 +62,10 @@ def register_model_in_mlflow():
             
             if model_versions:
                 latest_version = model_versions[0].version
-                client.transition_model_version_stage(
+                client.set_registered_model_alias(
                     name="moderation-model",
-                    version=latest_version,
-                    stage="Production"
+                    alias="production",
+                    version=latest_version
                 )
                 
                 logger.info(f"Model registered in MLflow successfully (version {latest_version}, stage: Production)")
@@ -102,11 +102,10 @@ def load_model(path="model.pkl"):
         logger.info("Model trained and saved successfully to: %s", path)
         return model
 
-def load_model_from_mlflow(model_name: str = "moderation-model", stage: str = "Production"):
+def load_model_from_mlflow(model_name: str = "moderation-model", stage: str = "production"):
     """Загружает модель из MLflow Model Registry"""
     try:
-        
-        model_uri = f"models:/{model_name}/{stage}"
+        model_uri = f"models:/{model_name}@{stage}"
         logger.info(f"Loading model from MLflow: {model_uri}")
         model = mlflow.sklearn.load_model(model_uri)
         logger.info("Model loaded successfully from MLflow")
