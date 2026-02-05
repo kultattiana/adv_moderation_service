@@ -10,11 +10,6 @@ HSE FCS Backend course project
 pip install -r requirements.txt
 ```
 
-### Регистрация модели в MLFlow
-```bash
-python register_model.py
-```
-
 ### Запуск сервера MLFlow
 ```bash
 mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5002
@@ -32,7 +27,7 @@ uvicorn main:app --reload --port 8000
 
 ### Запуск тестов
 ```bash
-pytest tests/test_api.py
+pytest tests/
 ```
 ### Документация API
 После запуска сервера доступна автоматическая документация Swagger UI: http://localhost:8000/docs

@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS sellers (
     seller_id SERIAL PRIMARY KEY,
-    username TEXT NOT NULL,
+    username TEXT NOT NULL UNIQUE,
     email TEXT NOT NULL UNIQUE,
     password TEXT NOT NULL,
     is_verified BOOLEAN DEFAULT FALSE NOT NULL,

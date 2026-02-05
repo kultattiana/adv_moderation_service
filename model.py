@@ -8,6 +8,7 @@ from mlflow.sklearn import log_model
 import os
 import warnings
 from mlflow.tracking import MlflowClient
+from dotenv import load_dotenv
 from typing import Optional, Dict, Any
 
 logging.basicConfig(
@@ -30,6 +31,9 @@ class ModelSingleton:
     def __init__(self):
         if not hasattr(self, '_initialized'):
             self._initialized = True
+            use_mlflow = os.getenv("USE_MLFLOW", "false").strip().lower() == "true"
+            if use_mlflow:
+                self._model = self._register_model_in_mlflow()
             self._model = self._load_model()
 
     def _train_model(self) -> Pipeline:
@@ -66,7 +70,8 @@ class ModelSingleton:
                     model, 
                     name = "model", 
                     registered_model_name="moderation-model",
-                    metadata={"suppress_pydantic_warnings": True}
+                    metadata={"suppress_pydantic_warnings": True},
+                    serialization_format="skops"
                 )
                 
                 client = MlflowClient()
@@ -137,4 +142,5 @@ class ModelSingleton:
     def is_loaded(self) -> bool:
         return self._model is not None
 
+load_dotenv()
 model_singleton = ModelSingleton()
