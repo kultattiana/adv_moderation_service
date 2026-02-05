@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
 from main import app
 from routers.predict import adv_service
+from model import model_singleton
 import warnings
 
 
@@ -130,11 +131,7 @@ def test_model_unavailable_503(app_client, valid_ad_data):
     """
     Тест обработки ошибки, когда модель не загружена (503 Service Unavailable)
     """
-
-    original_model = app_client.app.state.model
-    try:
-    
-        app_client.app.state.model = None
+    with patch.object(model_singleton, '_model', None):
         
         response = app_client.post(
             "/predict",
@@ -142,5 +139,3 @@ def test_model_unavailable_503(app_client, valid_ad_data):
         
         assert response.status_code == 503
         assert "Service temporarily unavailable" in response.json()["detail"]
-    finally:
-        app_client.app.state.model = original_model

@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends
-from routers.predict import get_model
+from model import model_singleton
 from sklearn.pipeline import Pipeline
 
 router = APIRouter(tags=["Health"])
 
 @router.get("/health")
-def health(model: Pipeline = Depends(get_model)):
-    return {"status": "healthy", "model_loaded": model is not None}
+def health():
+    return {"status": "healthy", "model_loaded": model_singleton.is_loaded}

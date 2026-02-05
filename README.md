@@ -20,6 +20,11 @@ python register_model.py
 mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5002
 ```
 
+### Создание БД внутри Docker
+```
+docker compose up -d
+```
+
 ### Запуск сервера
 ```bash
 uvicorn main:app --reload --port 8000

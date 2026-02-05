@@ -6,3 +6,6 @@ pydantic==2.5.0
 scikit-learn
 numpy
 mlflow
+asyncpg
+psycopg2-binary
+yandex-pgmigrate

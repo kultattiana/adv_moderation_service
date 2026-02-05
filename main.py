@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 import uvicorn
-from routers import health, predict
-from model import load_model
+from routers import health, predict, ads, sellers
+#from model import load_model
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 import os
@@ -18,12 +18,15 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
+from model import model_singleton
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     use_mlflow = os.getenv("USE_MLFLOW", "false").strip().lower() == "true"
     source = "MLflow" if use_mlflow else "local file"
     logger.info(f"Loading model from: {source}")
-    app.state.model = load_model("model.pkl")
+    logger.info(f"Model loaded: {model_singleton.is_loaded}")
+    #app.state.model = load_model("model.pkl")
     yield
 
 app = FastAPI(
@@ -36,6 +39,9 @@ app = FastAPI(
 
 app.include_router(health.router)
 app.include_router(predict.router)
+app.include_router(ads.router, prefix='/ads')
+app.include_router(sellers.router, prefix='/sellers')
+app.include_router(sellers.root_router)
 
 
 if __name__ == "__main__":

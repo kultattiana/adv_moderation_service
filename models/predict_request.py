@@ -9,3 +9,6 @@ class PredictRequest(BaseModel):
     description: str = Field(..., min_length = 1, max_length = 1000, description = 'Описание товара')
     category: int = Field(..., ge = 0, le = 100, description = 'Категория товара (от 0 до 100)')
     images_qty: int = Field(..., ge=0, le=10, description="Количество изображений от 0 до 10")
+
+class SimplePredictRequest(BaseModel):
+    item_id: int = Field(..., gt = 0, description = 'Положительный ID товара')
