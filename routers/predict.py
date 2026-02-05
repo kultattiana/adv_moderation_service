@@ -19,9 +19,6 @@ router = APIRouter(tags=["Prediction"])
 
 adv_service = AdvertisementService()
 
-# def get_model() -> Pipeline:
-#     return model_singleton._model
-
     
 @router.post("/predict", response_model = PredictResponse)
 async def predict(request: PredictRequest) -> PredictResponse:
@@ -59,7 +56,7 @@ async def predict(request: PredictRequest) -> PredictResponse:
 async def simple_predict(request: SimplePredictRequest) -> PredictResponse:
 
     try:
-        logger.info(f"""Processing ad moderation request: {request.item_id}""")
+        logger.info(f"""Processing ad moderation request: item_id - {request.item_id}""")
         is_violation, probability = await adv_service.simple_predict(request.item_id)
         logger.info(
             f"Ad moderation for item {request.item_id}: "
