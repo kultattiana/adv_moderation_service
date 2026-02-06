@@ -31,8 +31,8 @@ class ModelSingleton:
     def __init__(self):
         if not hasattr(self, '_initialized'):
             self._initialized = True
-            use_mlflow = os.getenv("USE_MLFLOW", "false").strip().lower() == "true"
-            if use_mlflow:
+            register_mlflow = os.getenv("REGISTER_MLFLOW", "false").strip().lower() == "true"
+            if register_mlflow:
                 self._model = self._register_model_in_mlflow()
             self._model = self._load_model()
 
