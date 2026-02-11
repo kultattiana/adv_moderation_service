@@ -9,3 +9,4 @@ mlflow
 asyncpg
 psycopg2-binary
 yandex-pgmigrate
+aiokafka==0.11.0

@@ -3,10 +3,16 @@ sys.path.append('.')
 from fastapi import APIRouter, HTTPException, Depends, Request
 from models.predict_request import PredictRequest, SimplePredictRequest
 from models.predict_response import PredictResponse
-from services.advertisements import AdvertisementService
+from models.async_predict_response import AsyncPredictResponse
+from services.predictions import PredictionService
+from services.moderations import ModerationService
 from sklearn.pipeline import Pipeline
 from errors import ModelNotLoadedError, AdNotFoundError
 import logging
+from typing import Optional
+from pydantic import BaseModel
+from clients.kafka import KafkaProducer, kafka_producer
+from datetime import datetime, timezone
 
 logging.basicConfig(
     level=logging.INFO,
@@ -17,7 +23,15 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Prediction"])
 
-adv_service = AdvertisementService()
+pred_service = PredictionService()
+mod_service = ModerationService()
+
+class CreateModerationInDto(BaseModel):
+    item_id: int
+    status: str
+    is_violation: Optional[bool] = None
+    probability: Optional[float] = None
+    error_message: Optional[str] = None
 
     
 @router.post("/predict", response_model = PredictResponse)
@@ -28,7 +42,7 @@ async def predict(request: PredictRequest) -> PredictResponse:
                             category - {request.category}, images_qty - {request.images_qty}
                         """)
         
-        is_violation, probability = await adv_service.predict(
+        is_violation, probability = await pred_service.predict(
                                                             request.seller_id,
                                                             request.is_verified_seller,
                                                             request.item_id,
@@ -57,7 +71,7 @@ async def simple_predict(request: SimplePredictRequest) -> PredictResponse:
 
     try:
         logger.info(f"""Processing ad moderation request: item_id - {request.item_id}""")
-        is_violation, probability = await adv_service.simple_predict(request.item_id)
+        is_violation, probability = await pred_service.simple_predict(request.item_id)
         logger.info(
             f"Ad moderation for item {request.item_id}: "
             f"violation={is_violation}, probability={probability:.3f}"

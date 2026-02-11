@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends
-from model import model_singleton
+from clients.kafka import kafka_producer
 from sklearn.pipeline import Pipeline
 
 router = APIRouter(tags=["Health"])
 
 @router.get("/health")
 def health():
-    return {"status": "healthy", "model_loaded": model_singleton.is_loaded}
+    return {"status": "healthy", "kafka_producer_loaded": kafka_producer._initialized}
