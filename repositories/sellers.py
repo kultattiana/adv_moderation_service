@@ -3,8 +3,6 @@ from typing import Mapping, Any, Sequence, Optional, Dict
 from clients.postgres import get_pg_connection
 from errors import SellerNotFoundError
 from models.seller import SellerModel
-from models.ad import AdModel
-from models.predict_request import PredictRequest
 
 @dataclass(frozen = True)
 class SellerPostgresStorage:

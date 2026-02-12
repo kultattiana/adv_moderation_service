@@ -3,8 +3,6 @@ from typing import Mapping, Any, Sequence, Optional, Dict
 from clients.postgres import get_pg_connection
 from errors import ModerationNotFoundError
 from models.moderation import ModerationModel
-from models.ad import AdModel
-from models.predict_request import PredictRequest
 
 @dataclass(frozen = True)
 class ModerationPostgresStorage:
@@ -70,6 +68,21 @@ class ModerationPostgresStorage:
         async with get_pg_connection() as connection:
             rows = await connection.fetch(query)
             return [dict(row) for row in rows]
+    
+    async def delete(self, seller_id: int) -> Mapping[str, Any]:
+        query = '''
+            DELETE FROM moderation_results
+            WHERE id = $1::INTEGER
+            RETURNING *
+        '''
+        
+        async with get_pg_connection() as connection:
+            row = await connection.fetchrow(query, seller_id)
+            
+            if row:
+                return dict(row)
+            
+            raise ModerationNotFoundError()
     
     async def update(self, id: int, **updates: Any) -> Mapping[str, Any]:
         keys, args = [], []
@@ -137,6 +150,10 @@ class ModerationRepository:
     
     async def update(self, id: int, **changes: Mapping[str, Any]) -> ModerationModel:
         raw_mod = await self.moderation_storage.update(id, **changes)
+        return ModerationModel(**raw_mod)
+
+    async def delete(self, task_id: int) -> ModerationModel:
+        raw_mod = await self.moderation_storage.delete(task_id)
         return ModerationModel(**raw_mod)
     
     async def get_many(self) -> Sequence[ModerationModel]:

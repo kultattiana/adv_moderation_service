@@ -6,7 +6,6 @@ import uuid
 
 PASSWORD = 'qwerty'
 
-
 class TestSellerAPI:
     
     def test_create_seller(self, seller_data: Mapping[str, Any], app_client: TestClient):

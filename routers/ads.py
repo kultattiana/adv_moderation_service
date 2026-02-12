@@ -1,11 +1,8 @@
 from fastapi import APIRouter, HTTPException, status, Response, Request
 from typing import Sequence, Mapping, Any
 from pydantic import BaseModel
-from models.seller import SellerModel
 from models.ad import AdModel
-from services.sellers import SellerService
 from services.advertisements import AdvertisementService
-from models.predict_request import PredictRequest
 from errors import SellerNotFoundError, AdNotFoundError
 
 router = APIRouter(tags=['Ads'])

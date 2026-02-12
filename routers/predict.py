@@ -3,16 +3,12 @@ sys.path.append('.')
 from fastapi import APIRouter, HTTPException, Depends, Request
 from models.predict_request import PredictRequest, SimplePredictRequest
 from models.predict_response import PredictResponse
-from models.async_predict_response import AsyncPredictResponse
 from services.predictions import PredictionService
 from services.moderations import ModerationService
-from sklearn.pipeline import Pipeline
 from errors import ModelNotLoadedError, AdNotFoundError
 import logging
 from typing import Optional
 from pydantic import BaseModel
-from clients.kafka import KafkaProducer, kafka_producer
-from datetime import datetime, timezone
 
 logging.basicConfig(
     level=logging.INFO,

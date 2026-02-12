@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Response, Request
 from typing import Sequence, Mapping, Any
-from pydantic import BaseModel
 from services.moderations import ModerationService
 from errors import ModerationNotFoundError
 from models.moderation_result import ErrorModerationResultResponse, ModerationResultResponse
@@ -17,7 +16,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Moderation Results"])
 mod_service = ModerationService()
 
-@router.get('/{item_id}')
+@router.get('/{task_id}')
 async def get_by_task_id(task_id: int):
     try:
         mod_result =  await mod_service.get_by_task_id(task_id)
@@ -37,6 +36,16 @@ async def get_by_task_id(task_id: int):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f'Moderation result from task {task_id} is not found',
+        )
+
+@router.delete('/{task_id}')
+async def delete(task_id: int, request: Request) -> ModerationModel:
+    try:
+        return await mod_service.delete(task_id)
+    except ModerationNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f'Task {task_id} is not found',
         )
 
 @router.get('/', status_code=status.HTTP_200_OK)

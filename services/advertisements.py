@@ -6,9 +6,7 @@ from models.predict_request import PredictRequest
 from typing import Mapping
 from typing import Sequence
 from typing import Any
-from repositories.ads import SellerRepository, AdRepository
-from sklearn.pipeline import Pipeline
-from errors import SellerNotFoundError, AdNotFoundError, ModelNotLoadedError
+from repositories.ads import AdRepository
 
 class AdvertisementService:
 
@@ -31,6 +29,11 @@ class AdvertisementService:
 
     async def get_many(self) -> Sequence[AdModel]:
         return await self.ad_repo.get_many()
+    
+    async def update(self, item_id: int, 
+                            description: str) -> SellerModel:
+        return await self.ad_repo.update(item_id,
+                                         description=description)
         
     
         

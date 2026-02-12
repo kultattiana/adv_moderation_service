@@ -17,20 +17,12 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-#from model import model_singleton
-
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info(f"Configuring Kafka Producer with servers: {KAFKA_BOOTSTRAP}")
     await kafka_producer.configure(KAFKA_BOOTSTRAP)
     logger.info("Starting Kafka Producer...")
     await kafka_producer.start()
-    # use_mlflow = os.getenv("USE_MLFLOW", "false").strip().lower() == "true"
-    # source = "MLflow" if use_mlflow else "local file"
-    #logger.info(f"Loading model from: {source}")
-    #logger.info(f"Model loaded: {model_singleton.is_loaded}")
     yield
     logger.info("Stopping Kafka Producer...")
     await kafka_producer.stop()
@@ -49,7 +41,6 @@ app.include_router(ads.router, prefix='/ads')
 app.include_router(sellers.router, prefix='/sellers')
 app.include_router(sellers.root_router)
 app.include_router(moderation_results.router, prefix = '/moderation_results')
-
 
 
 if __name__ == "__main__":

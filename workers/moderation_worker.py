@@ -21,12 +21,10 @@ logger = logging.getLogger(__name__)
 
 class KafkaConsumerWorker:
 
-    # Конфигурация retry
     MAX_RETRIES = 3
-    INITIAL_RETRY_DELAY = 5  # секунд
-    RETRY_BACKOFF_MULTIPLIER = 2  # каждый раз увеличиваем задержку
+    INITIAL_RETRY_DELAY = 5
+    RETRY_BACKOFF_MULTIPLIER = 2 
     
-    # Типы ошибок, которые считаются временными и требуют retry
     RETRYABLE_ERRORS = (
         ConnectionError,
         TimeoutError,

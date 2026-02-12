@@ -4,7 +4,6 @@ from fastapi import APIRouter, HTTPException, Depends
 from models.predict_request import SimplePredictRequest
 from models.async_predict_response import AsyncPredictResponse
 from services.moderations import ModerationService
-from sklearn.pipeline import Pipeline
 from errors import ModelNotLoadedError, AdNotFoundError
 import logging
 from typing import Optional
@@ -29,7 +28,12 @@ class CreateModerationInDto(BaseModel):
     probability: Optional[float] = None
     error_message: Optional[str] = None
 
-    
+
+async def get_kafka_producer():
+    if kafka_producer is None:
+        raise RuntimeError("Kafka producer is not initialized")
+    return kafka_producer
+
 
 @router.post("/async_predict/{item_id}", response_model=AsyncPredictResponse)
 async def async_predict(request: SimplePredictRequest, 

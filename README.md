@@ -16,8 +16,13 @@ mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5002
 ```
 
 ### Создание БД внутри Docker
-```
+```bash
 docker compose up -d
+```
+
+### Запуск Kafka Consumer (необходимо запустить до запуска сервера, модель подгружается на стороне консьюмера)
+```bash
+python -m workers.moderation_worker
 ```
 
 ### Запуск сервера
@@ -33,6 +38,8 @@ pytest tests/
 После запуска сервера доступна автоматическая документация Swagger UI: http://localhost:8000/docs
 
 Интерфейс MLFlow: http://localhost:5002
+
+Интерфейс Kafka: http://localhost:8080
 
 ### Пример ответа
 ```json

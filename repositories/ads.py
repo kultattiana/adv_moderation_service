@@ -5,7 +5,7 @@ from errors import AdNotFoundError, SellerNotFoundError
 from models.seller import SellerModel
 from models.ad import AdModel
 from models.predict_request import PredictRequest
-from repositories.sellers import SellerPostgresStorage, SellerRepository
+from repositories.sellers import SellerPostgresStorage
 
 @dataclass(frozen=True)
 class AdPostgresStorage:

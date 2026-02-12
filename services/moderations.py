@@ -1,11 +1,10 @@
 from dataclasses import dataclass
 from models.moderation import ModerationModel
-from fastapi import APIRouter, HTTPException, status
 from typing import Mapping
 from typing import Sequence
 from typing import Any
 from repositories.moderations import ModerationRepository
-from errors import ModerationNotFoundError, AdNotFoundError
+from errors import AdNotFoundError
 import asyncpg
 
 @dataclass(frozen=True)
@@ -27,6 +26,9 @@ class ModerationService:
     
     async def get_by_task_id(self, id: int) -> ModerationModel:
         return await self.moderation_repo.get_by_task_id(id)
+    
+    async def delete(self, task_id: int) -> ModerationModel:
+        return await self.moderation_repo.delete(task_id)
 
     async def update_status(self, task_id, updates: Mapping[str, Any]) -> ModerationModel:
         return await self.moderation_repo.update(task_id, **updates)

@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
 from main import app
-from routers.predict import adv_service
+from routers.predict import pred_service
 from model import model_singleton
 import warnings
 import logging

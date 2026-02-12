@@ -7,10 +7,16 @@ from main import app
 from http import HTTPStatus
 import os
 import uuid
+from unittest.mock import AsyncMock, patch
+from routers import predict
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+
+from workers.moderation_worker import KafkaConsumerWorker
 
 
 @pytest.fixture
 def app_client() -> Generator[TestClient, None, None]:
+    app.include_router(predict.router)
     return TestClient(app)
 
 
@@ -111,3 +117,51 @@ def created_item_zero_images(app_client: TestClient, item_zero_images: Mapping[s
         f'/ads/{item["item_id"]}',
         cookies={'x-user-id': str(logged_seller['seller_id'])}
     )
+
+@pytest.fixture
+def created_task_pending(app_client, created_item):
+    mock_producer = AsyncMock()
+    mock_producer.send_moderation_request = AsyncMock()
+    mock_producer.send_moderation_request.return_value = True
+    
+    with patch('routers.async_predict.kafka_producer', mock_producer):
+        response = app_client.get(f'/ads/{created_item["item_id"]}')
+        assert response.status_code == HTTPStatus.OK
+        item_id = created_item["item_id"]
+        
+        response = app_client.post(
+            f"/async_predict/{item_id}",
+            json={"item_id": item_id}
+        )
+
+        task_data = response.json()
+        task_id = task_data["task_id"]
+        
+        yield task_data
+
+        app_client.delete(
+            f'/moderation_results/{task_id}'
+        )
+
+@pytest.fixture
+def worker():
+    worker = KafkaConsumerWorker()
+    worker.mod_service = AsyncMock()
+    worker.ml_service = AsyncMock()
+    worker.consumer = AsyncMock(spec=AIOKafkaConsumer)
+    worker.dlq_producer = AsyncMock(spec=AIOKafkaProducer)
+    
+    return worker
+    
+@pytest.fixture
+def sample_message():
+    return {
+        "task_id": 32,
+        "item_id": 1,
+        "timestamp": "2026-02-11T22:15:07.276334+00:00",
+        "event_type": "moderation_request",
+        "metadata": {
+            "source": "advertisement_service",
+            "version": "1.0"
+        }
+    }

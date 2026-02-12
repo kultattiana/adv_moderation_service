@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
 from main import app
-from routers.predict import adv_service
+from routers.predict import pred_service
 from model import model_singleton
 import warnings
 
@@ -119,7 +119,7 @@ class TestMissingFields:
 def test_business_logic_error_handling(app_client, valid_ad_data):
     """Тест обработки ошибок бизнес-логики"""
     
-    with patch.object(adv_service, 'predict', 
+    with patch.object(pred_service, 'predict', 
                      AsyncMock(side_effect=ValueError('Simulated business logic error'))):
         response = app_client.post("/predict", json=valid_ad_data)
         
