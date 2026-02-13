@@ -65,7 +65,7 @@ class KafkaConsumerWorker:
             await self.dlq_producer.stop()
         logger.info("Worker stopped")
     
-    async def send_to_dlq(self, error: str, original_message: Dict[str, Any], retry_count: int = 0):
+    async def send_to_dlq(self, error: str, original_message: Dict[str, Any], retry_count: int = None):
         if not self.dlq_producer:
             return
         
@@ -78,7 +78,7 @@ class KafkaConsumerWorker:
         
         try:
             await self.dlq_producer.send_and_wait(DLQ_TOPIC, dlq_message)
-            logger.warning(f"Message sent to DLQ after {dlq_message['retry_count']} attempts: {error}")
+            logger.warning(f"Message sent to DLQ: {error}")
         except Exception as e:
             logger.error(f"Failed to send to DLQ: {e}")
     
@@ -166,7 +166,7 @@ class KafkaConsumerWorker:
         except Exception as e:
             logger.error(f"Failed to update status in moderation service: {e}")
         
-        await self.send_to_dlq(error_message, original_message)
+        await self.send_to_dlq(error_message, original_message, retry_count)
         return False
 
 
