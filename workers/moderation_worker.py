@@ -65,7 +65,7 @@ class KafkaConsumerWorker:
             await self.dlq_producer.stop()
         logger.info("Worker stopped")
     
-    async def send_to_dlq(self, error: str, original_message: Dict[str, Any], retry_count: int = None):
+    async def send_to_dlq(self, error: str, original_message: Dict[str, Any], retry_count: int = 0):
         if not self.dlq_producer:
             return
         
@@ -98,10 +98,9 @@ class KafkaConsumerWorker:
             "is_violation": is_violation,
             "probability": probability,
             "error_message": error_message,
+            "processed_at": datetime.now(timezone.utc).replace(tzinfo=None)
         }
 
-        if retry_count > 0:
-            result["retry_attempts"] = retry_count
         return result
     
     def is_retryable_error(self, error: Exception) -> bool:

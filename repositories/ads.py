@@ -6,6 +6,7 @@ from models.seller import SellerModel
 from models.ad import AdModel
 from models.predict_request import PredictRequest
 from repositories.sellers import SellerPostgresStorage
+from datetime import datetime, timezone
 
 @dataclass(frozen=True)
 class AdPostgresStorage:
@@ -114,9 +115,11 @@ class AdPostgresStorage:
         for key, value in updates.items():
             keys.append(key)
             args.append(value)
+        
+        keys.append('updated_at')
+        args.append(datetime.now(timezone.utc).replace(tzinfo=None))
 
         fields_str = ', '.join([f'{key} = ${i + 2}' for i, key in enumerate(keys)])
-
         query = f'''
             UPDATE ads
             SET {fields_str}

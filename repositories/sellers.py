@@ -3,6 +3,7 @@ from typing import Mapping, Any, Sequence, Optional, Dict
 from clients.postgres import get_pg_connection
 from errors import SellerNotFoundError
 from models.seller import SellerModel
+from datetime import datetime, timezone
 
 @dataclass(frozen = True)
 class SellerPostgresStorage:
@@ -92,6 +93,9 @@ class SellerPostgresStorage:
         for key, value in updates.items():
             keys.append(key)
             args.append(value)
+        
+        keys.append('updated_at')
+        args.append(datetime.now(timezone.utc).replace(tzinfo=None))
 
         fields_str = ', '.join([f'{key} = ${i + 2}' for i, key in enumerate(keys)])
 

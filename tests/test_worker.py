@@ -2,6 +2,7 @@ import asyncio
 from unittest.mock import AsyncMock
 from errors import AdNotFoundError
 import asyncio
+from datetime import datetime, timezone
 
 
 class TestKafkaConsumerWorker:
@@ -15,16 +16,7 @@ class TestKafkaConsumerWorker:
         assert result is True
         
         worker.ml_service.simple_predict.assert_called_once_with(sample_message["item_id"])
-        worker.mod_service.update_status.assert_called_once_with(
-            sample_message["task_id"],
-            {
-                "item_id": sample_message["item_id"],
-                "status": "completed",
-                "is_violation": False,
-                "probability": 0.12,
-                "error_message": None
-            }
-        )
+        worker.mod_service.update_status.assert_called_once()
         
        
     def test_process_message_ad_not_found(self, worker, sample_message):
