@@ -6,6 +6,7 @@ from models.seller import SellerModel
 from models.ad import AdModel
 from models.predict_request import PredictRequest
 from repositories.sellers import SellerPostgresStorage
+from repositories.moderations import ModerationRepository
 from datetime import datetime, timezone
 
 @dataclass(frozen=True)
@@ -54,7 +55,9 @@ class AdPostgresStorage:
                 a.category,
                 a.images_qty
             FROM ads a
-            JOIN sellers s ON a.seller_id = s.seller_id
+            JOIN sellers s 
+            ON a.seller_id = s.seller_id
+                AND a.is_closed = FALSE
             WHERE a.item_id = $1::INTEGER
             LIMIT 1
         '''
@@ -140,6 +143,7 @@ class AdPostgresStorage:
 class AdRepository:
     ad_storage: AdPostgresStorage = AdPostgresStorage()
     seller_storage: SellerPostgresStorage = SellerPostgresStorage()
+    moderation_repo: ModerationRepository = ModerationRepository()
     
     async def create(self, seller_id: int,
                             name: str,
@@ -176,6 +180,7 @@ class AdRepository:
     
     async def delete(self, item_id: int) -> AdModel:
         raw_ad = await self.ad_storage.delete(item_id)
+        await self.moderation_repo.delete_all_by_item_id(item_id)
         return AdModel(**raw_ad)
     
 
@@ -188,4 +193,10 @@ class AdRepository:
 
     async def update(self, item_id: int, **changes: Mapping[str, Any]) -> SellerModel:
         raw_ad= await self.ad_storage.update(item_id, **changes)
+        await self.moderation_repo.invalidate_by_item_id(item_id)
+        return AdModel(**raw_ad)
+    
+    async def close(self, item_id: int) -> None:
+        raw_ad = await self.ad_storage.update(item_id, is_closed=True)
+        await self.moderation_repo.delete_all_by_item_id(item_id)
         return AdModel(**raw_ad)

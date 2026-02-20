@@ -10,3 +10,6 @@ asyncpg
 psycopg2-binary
 yandex-pgmigrate
 aiokafka==0.11.0
+redis
+async_lru
+pytest-asyncio

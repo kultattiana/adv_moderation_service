@@ -90,4 +90,23 @@ async def update_description(item_id: int,
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f'Item {item_id} is not found',
         )
+
+@router.patch('/close/{item_id}')
+async def close(item_id: int, request: Request) -> AdModel:
+    
+    current_seller_id = request.cookies.get('x-user-id')
+
+    if not current_seller_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='Unauthorized',
+        )
+    
+    try:
+        return await ad_service.close(item_id)
+    except AdNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f'Item {item_id} is not found',
+        )
     

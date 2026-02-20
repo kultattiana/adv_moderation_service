@@ -26,6 +26,9 @@ class ModerationService:
     
     async def get_by_task_id(self, id: int) -> ModerationModel:
         return await self.moderation_repo.get_by_task_id(id)
+
+    async def get_latest_by_item_id(self, item_id: int) -> ModerationModel:
+        return await self.moderation_repo.get_latest_by_item_id(item_id)
     
     async def delete(self, task_id: int) -> ModerationModel:
         return await self.moderation_repo.delete(task_id)

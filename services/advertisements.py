@@ -34,6 +34,7 @@ class AdvertisementService:
                             description: str) -> SellerModel:
         return await self.ad_repo.update(item_id,
                                          description=description)
-        
     
+    async def close(self, item_id: int) -> SellerModel:
+        return await self.ad_repo.close(item_id)
         

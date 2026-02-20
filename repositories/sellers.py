@@ -3,6 +3,7 @@ from typing import Mapping, Any, Sequence, Optional, Dict
 from clients.postgres import get_pg_connection
 from errors import SellerNotFoundError
 from models.seller import SellerModel
+from repositories.moderations import ModerationRepository
 from datetime import datetime, timezone
 
 @dataclass(frozen = True)
@@ -118,6 +119,7 @@ class SellerPostgresStorage:
 @dataclass(frozen=True)
 class SellerRepository:
     seller_storage: SellerPostgresStorage = SellerPostgresStorage()
+    moderation_repo: ModerationRepository = ModerationRepository()
     
     async def create(self, username: str,
                             email: str,
@@ -142,10 +144,12 @@ class SellerRepository:
     
     async def update(self, seller_id: int, **changes: Mapping[str, Any]) -> SellerModel:
         raw_seller = await self.seller_storage.update(seller_id, **changes)
+        await self.moderation_repo.invalidate_by_seller_id(seller_id)
         return SellerModel(**raw_seller)
 
     async def delete(self, seller_id: int) -> SellerModel:
         raw_seller = await self.seller_storage.delete(seller_id)
+        await self.moderation_repo.delete_all_by_seller_id(seller_id)
         return SellerModel(**raw_seller)
     
     async def get_many(self) -> Sequence[SellerModel]:

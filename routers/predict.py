@@ -67,6 +67,12 @@ async def simple_predict(request: SimplePredictRequest) -> PredictResponse:
 
     try:
         logger.info(f"""Processing ad moderation request: item_id - {request.item_id}""")
+        ready_moderation = await mod_service.get_latest_by_item_id(request.item_id)
+    
+        if ready_moderation and ready_moderation.status == "completed":
+            return PredictResponse(is_violation=ready_moderation.is_violation, 
+                                   probability=ready_moderation.probability)
+        
         is_violation, probability = await pred_service.simple_predict(request.item_id)
         logger.info(
             f"Ad moderation for item {request.item_id}: "

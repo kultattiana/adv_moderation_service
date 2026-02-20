@@ -181,6 +181,7 @@ class KafkaConsumerWorker:
                 logger.info(f"Processing event for item_id: {item_id}")
             
             is_violation, probability = await self.ml_service.simple_predict(item_id)
+            logger.info(f"Got prediction")
         
             query = self.build_moderation_result(
                 item_id=item_id,
@@ -188,7 +189,8 @@ class KafkaConsumerWorker:
                 is_violation=is_violation,
                 probability=probability,
             )
-            
+
+            logger.info(f"Updating status: {task_id}")
             await self.mod_service.update_status(task_id, query)
             
             logger.info(f"Successfully processed item_id: {item_id}")

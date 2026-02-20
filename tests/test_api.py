@@ -8,7 +8,7 @@ from routers.predict import pred_service
 from model import model_singleton
 import warnings
 
-
+@pytest.mark.integration
 class TestPositiveCases:
     """Тесты положительных результатов предсказания"""
     
@@ -25,7 +25,7 @@ class TestPositiveCases:
         assert response.json()['is_violation'] == expected_result
         assert response.json()['probability'] < 0.5
 
-
+@pytest.mark.integration
 class TestNegativeCases:
     """Тесты отрицательных результатов предсказания"""
     
@@ -37,7 +37,7 @@ class TestNegativeCases:
         assert response.json()['is_violation'] == True
         assert response.json()['probability'] >= 0.5
 
-
+@pytest.mark.integration
 class TestValidation:
     """Тесты валидации входных данных"""
     
@@ -59,7 +59,7 @@ class TestValidation:
         response = app_client.post("/predict", json=data)
         assert response.status_code == 422
 
-
+@pytest.mark.integration
 class TestEdgeCases:
     """Тесты граничных случаев"""
     
@@ -95,7 +95,7 @@ class TestEdgeCases:
         
         assert response.status_code == 200
 
-
+@pytest.mark.integration
 class TestMissingFields:
     """Тесты отсутствующих обязательных полей"""
     
@@ -116,26 +116,20 @@ class TestMissingFields:
         assert response.status_code == 422
 
 
-def test_business_logic_error_handling(app_client, valid_ad_data):
-    """Тест обработки ошибок бизнес-логики"""
+class TestPredictAPIUnit:
     
-    with patch.object(pred_service, 'predict', 
-                     AsyncMock(side_effect=ValueError('Simulated business logic error'))):
-        response = app_client.post("/predict", json=valid_ad_data)
-        
-        assert response.status_code == 500
-        response_data = response.json()
-        assert "Simulated business logic error" in response_data["detail"]
-
-def test_model_unavailable_503(app_client, valid_ad_data):
-    """
-    Тест обработки ошибки, когда модель не загружена (503 Service Unavailable)
-    """
-    with patch.object(model_singleton, '_model', None):
-        
-        response = app_client.post(
-            "/predict",
-            json=valid_ad_data)
-        
-        assert response.status_code == 503
-        assert "Service temporarily unavailable" in response.json()["detail"]
+    def test_business_logic_error_handling_unit(self, app_client_with_mocks, valid_ad_data):
+        with patch('routers.predict.pred_service.predict', 
+                  AsyncMock(side_effect=ValueError('Simulated business logic error'))):
+            response = app_client_with_mocks.post("/predict", json=valid_ad_data)
+            
+            assert response.status_code == 500
+            response_data = response.json()
+            assert "Simulated business logic error" in response_data["detail"]
+    
+    def test_model_unavailable_503_unit(self, app_client_with_mocks, valid_ad_data):
+       with patch.object(model_singleton, '_model', None):
+            response = app_client_with_mocks.post("/predict", json=valid_ad_data)
+            
+            assert response.status_code == 503
+            assert "Service temporarily unavailable" in response.json()["detail"]

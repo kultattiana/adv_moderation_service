@@ -9,5 +9,6 @@ class AdModel(BaseModel):
     description: str
     category: int
     images_qty: int
+    is_closed: Optional[bool] = False
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

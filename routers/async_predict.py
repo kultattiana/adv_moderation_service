@@ -41,7 +41,15 @@ async def async_predict(request: SimplePredictRequest,
 
     try:
         logger.info(f"""Processing ad moderation request: item_id - {request.item_id}""")
-       
+
+        ready_moderation = await mod_service.get_latest_by_item_id(request.item_id)
+        if ready_moderation and ready_moderation.status == "completed":
+            return AsyncPredictResponse(
+                task_id=ready_moderation.id,
+                status=ready_moderation.status,
+                message=f"Moderation was already processed, the task_id is: {ready_moderation.id}"
+            )
+
         mod_data = CreateModerationInDto(item_id=request.item_id, status="pending")
         moderation_result = await mod_service.register(dict(mod_data))
         

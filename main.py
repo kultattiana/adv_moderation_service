@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 import uvicorn
-from routers import health, async_predict, ads, sellers, moderation_results
+from routers import health, async_predict, ads, sellers, moderation_results, predict
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 import os
@@ -37,6 +37,7 @@ app = FastAPI(
 
 app.include_router(health.router)
 app.include_router(async_predict.router)
+app.include_router(predict.router)
 app.include_router(ads.router, prefix='/ads')
 app.include_router(sellers.router, prefix='/sellers')
 app.include_router(sellers.root_router)
