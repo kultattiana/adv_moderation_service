@@ -73,7 +73,10 @@ async def simple_predict(request: SimplePredictRequest) -> PredictResponse:
             return PredictResponse(is_violation=ready_moderation.is_violation, 
                                    probability=ready_moderation.probability)
         
-        is_violation, probability = await pred_service.simple_predict(request.item_id)
+        mod_data = CreateModerationInDto(item_id=request.item_id, status="pending")
+        moderation_result = await mod_service.register(dict(mod_data))
+
+        is_violation, probability = await pred_service.simple_predict(request.item_id, moderation_result.id)
         logger.info(
             f"Ad moderation for item {request.item_id}: "
             f"violation={is_violation}, probability={probability:.3f}"

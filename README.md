@@ -30,10 +30,21 @@ python -m workers.moderation_worker
 uvicorn main:app --reload --port 8000
 ```
 
-### Запуск тестов
+### Запуск всех тестов
 ```bash
 pytest tests/
 ```
+
+### Запуск только интеграционных тестов
+```bash
+pytest -m integration
+```
+
+### Запуск только юнит-тестов (работают без поднятия хранилища и кафки)
+```bash
+pytest -m "not integration"
+```
+
 ### Документация API
 После запуска сервера доступна автоматическая документация Swagger UI: http://localhost:8000/docs
 

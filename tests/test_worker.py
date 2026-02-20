@@ -38,8 +38,7 @@ class TestKafkaConsumerWorkerUnit:
         
         assert result is True
         
-        worker.ml_service.simple_predict.assert_called_once_with(sample_message_data["item_id"])
-        worker.mod_service.update_status.assert_called_once()
+        worker.ml_service.simple_predict.assert_called_once_with(sample_message_data["item_id"], sample_message_data["task_id"])
         
        
     def test_process_message_ad_not_found(self, worker, sample_message_data):

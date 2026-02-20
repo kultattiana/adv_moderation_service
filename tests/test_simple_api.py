@@ -7,6 +7,7 @@ from main import app
 from routers.predict import pred_service
 from model import model_singleton
 from repositories.ads import AdRepository
+from models.moderation import ModerationModel
 import warnings
 import logging
 
@@ -65,12 +66,15 @@ class TestSimplePredictAPIUnit:
         ]
     )
     def test_positive_scenarios_unit(self, app_client_with_mocks, seller_fixture, 
-                                     item_fixture, request, mock_ad_storage, mock_seller_storage):
+                                     item_fixture, request, mock_ad_storage, mock_seller_storage, 
+                                     pending_moderation, completed_moderation):
         seller = request.getfixturevalue(seller_fixture)
         item = request.getfixturevalue(item_fixture)
 
         mock_mod_service = AsyncMock()
         mock_mod_service.get_latest_by_item_id.return_value = None
+        mock_mod_service.register.return_value = ModerationModel(**pending_moderation)
+        mock_mod_service.update_status.return_value = ModerationModel(**completed_moderation)
         mock_moderation_repo = AsyncMock()
 
         predict_request = { "seller_id": seller["seller_id"],
@@ -86,6 +90,7 @@ class TestSimplePredictAPIUnit:
                                     moderation_repo=mock_moderation_repo)
         
         with patch('routers.predict.mod_service', mock_mod_service), \
+            patch('services.predictions.PredictionService.mod_service', mock_mod_service), \
              patch('services.predictions.PredictionService.ad_repo', mock_ad_repo):
             mock_ad_storage.select_for_prediction.return_value = predict_request
             
@@ -96,6 +101,8 @@ class TestSimplePredictAPIUnit:
             assert response.json()['is_violation'] == False
             assert response.json()['probability'] < 0.5
             mock_mod_service.get_latest_by_item_id.assert_called_once()
+            mock_mod_service.register.assert_called_once()
+            mock_mod_service.update_status.assert_called_once()
             mock_ad_storage.select_for_prediction.assert_called_once()
     
     @pytest.mark.parametrize(
@@ -104,12 +111,15 @@ class TestSimplePredictAPIUnit:
     )
     def test_unverified_seller_without_images_unit(self, app_client_with_mocks, 
                                                   seller_fixture, item_fixture, 
-                                                  request, mock_ad_storage, mock_seller_storage):
+                                                  request, mock_ad_storage, mock_seller_storage,
+                                                  pending_moderation, completed_moderation):
         seller = request.getfixturevalue(seller_fixture)
         item = request.getfixturevalue(item_fixture)
 
         mock_mod_service = AsyncMock()
         mock_mod_service.get_latest_by_item_id.return_value = None
+        mock_mod_service.register.return_value = ModerationModel(**pending_moderation)
+        mock_mod_service.update_status.return_value = ModerationModel(**completed_moderation)
         mock_moderation_repo = AsyncMock()
 
         predict_request = { "seller_id": seller["seller_id"],
@@ -125,6 +135,7 @@ class TestSimplePredictAPIUnit:
                                     moderation_repo=mock_moderation_repo)
         
         with patch('routers.predict.mod_service', mock_mod_service), \
+            patch('services.predictions.PredictionService.mod_service', mock_mod_service), \
              patch('services.predictions.PredictionService.ad_repo', mock_ad_repo):
             mock_ad_storage.select_for_prediction.return_value = predict_request
             
@@ -135,4 +146,6 @@ class TestSimplePredictAPIUnit:
             assert response.json()['is_violation'] == True
             assert response.json()['probability'] >= 0.5
             mock_mod_service.get_latest_by_item_id.assert_called_once()
+            mock_mod_service.register.assert_called_once()
+            mock_mod_service.update_status.assert_called_once()
             mock_ad_storage.select_for_prediction.assert_called_once()
