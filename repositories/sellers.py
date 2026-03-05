@@ -20,7 +20,7 @@ class SellerPostgresStorage:
                     RETURNING *
                 '''
         
-        async with get_pg_connection() as connection:
+        async with get_pg_connection(operation="insert") as connection:
             return dict(await connection.fetchrow(
                 query, username, email, password, is_verified
             ))
@@ -32,7 +32,7 @@ class SellerPostgresStorage:
             RETURNING *
         '''
         
-        async with get_pg_connection() as connection:
+        async with get_pg_connection(operation="delete") as connection:
             row = await connection.fetchrow(query, seller_id)
             
             if row:
@@ -49,7 +49,7 @@ class SellerPostgresStorage:
             LIMIT 1
         '''
         
-        async with get_pg_connection() as connection:
+        async with get_pg_connection(operation="select") as connection:
             row = await connection.fetchrow(query, seller_id)
             
             if row:
@@ -67,7 +67,7 @@ class SellerPostgresStorage:
             LIMIT 1
         '''
 
-        async with get_pg_connection() as connection:
+        async with get_pg_connection(operation="select") as connection:
             row = await connection.fetchrow(query, email, password)
 
             if row:
@@ -83,7 +83,7 @@ class SellerPostgresStorage:
             ORDER BY created_at DESC
         '''
         
-        async with get_pg_connection() as connection:
+        async with get_pg_connection(operation="select") as connection:
             rows = await connection.fetch(query)
             return [dict(row) for row in rows]
         
@@ -107,7 +107,7 @@ class SellerPostgresStorage:
             RETURNING *
         '''
 
-        async with get_pg_connection() as connection:
+        async with get_pg_connection(operation="update") as connection:
             row = await connection.fetchrow(query, id, *args)
 
             if row:

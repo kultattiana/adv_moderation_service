@@ -10,6 +10,8 @@ from typing import Dict, Any, Optional
 from datetime import datetime, timezone
 from services.moderations import ModerationService
 import logging
+import time
+from observability.metrics import PREDICTION_DURATION, MODEL_PREDICTION_PROBABILITY, PREDICTIONS_TOTAL
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,10 +55,20 @@ class PredictionService:
             category_normalized
         ]])
         
+        start_time = time.time()
         prediction_class = model.predict(features_array)[0]
         probabilities = model.predict_proba(features_array)[0]
+        duration = time.time() - start_time
+
+        PREDICTION_DURATION.observe(duration)
+
         violation_probability = float(probabilities[1])
         is_violation = bool(prediction_class)
+
+        result_label = "violation" if is_violation else "no_violation"
+        PREDICTIONS_TOTAL.labels(result=result_label).inc()
+        
+        MODEL_PREDICTION_PROBABILITY.observe(violation_probability)
 
         return is_violation, violation_probability
     

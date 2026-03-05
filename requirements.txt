@@ -13,3 +13,5 @@ aiokafka==0.11.0
 redis
 async_lru
 pytest-asyncio
+prometheus-client
+sentry-sdk[fastapi]

@@ -33,7 +33,7 @@ class ModerationPostgresStorage:
                     RETURNING *
                 '''
         
-        async with get_pg_connection() as connection:
+        async with get_pg_connection(operation="insert") as connection:
             return dict(await connection.fetchrow(
                 query, item_id, status, is_violation, probability, error_message
             ))
@@ -47,7 +47,7 @@ class ModerationPostgresStorage:
                     VALUES ($1, $2, $3, $4, $5)
                     RETURNING *
                 '''
-        async with get_pg_connection() as connection:
+        async with get_pg_connection(operation="insert") as connection:
             result = await connection.execute(
                query, item_id, status, is_violation, probability, error_message
             )
@@ -62,7 +62,7 @@ class ModerationPostgresStorage:
             LIMIT 1
         '''
         
-        async with get_pg_connection() as connection:
+        async with get_pg_connection(operation="select") as connection:
             row = await connection.fetchrow(query, id)
             
             if row:
@@ -79,7 +79,7 @@ class ModerationPostgresStorage:
             LIMIT 1
         '''
         
-        async with get_pg_connection() as connection:
+        async with get_pg_connection(operation="select") as connection:
             row = await connection.fetchrow(query, id)
             
             if row:
@@ -95,7 +95,7 @@ class ModerationPostgresStorage:
             ORDER BY created_at DESC
         '''
         
-        async with get_pg_connection() as connection:
+        async with get_pg_connection(operation="select") as connection:
             rows = await connection.fetch(query)
             return [dict(row) for row in rows]
     
@@ -106,7 +106,7 @@ class ModerationPostgresStorage:
             RETURNING *
         '''
         
-        async with get_pg_connection() as connection:
+        async with get_pg_connection(operation="delete") as connection:
             row = await connection.fetchrow(query, id)
             
             if row:
@@ -116,7 +116,7 @@ class ModerationPostgresStorage:
     
     async def delete_by_item_id(self, item_id: int) -> None:
         query = "DELETE FROM moderation_results WHERE item_id = $1"
-        async with get_pg_connection() as conn:
+        async with get_pg_connection(operation="delete") as conn:
             await conn.execute(query, item_id)
     
     async def update(self, id: int, **updates: Any) -> Mapping[str, Any]:
@@ -135,7 +135,7 @@ class ModerationPostgresStorage:
             RETURNING *
         '''
 
-        async with get_pg_connection() as connection:
+        async with get_pg_connection(operation="update") as connection:
             row = await connection.fetchrow(query, id, *args)
 
             if row:
@@ -149,7 +149,7 @@ class ModerationPostgresStorage:
             FROM ads 
             WHERE seller_id = $1 AND is_closed = false
         """
-        async with get_pg_connection() as connection:
+        async with get_pg_connection(operation="select") as connection:
             rows = await connection.fetch(query, seller_id)
             return [row['item_id'] for row in rows]
 

@@ -9,6 +9,8 @@ import logging
 from typing import Optional
 from pydantic import BaseModel
 from clients.kafka import KafkaProducer, kafka_producer
+from observability.metrics import PREDICTION_ERRORS_TOTAL
+from routers.health import sentry_sdk
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,6 +41,13 @@ async def get_kafka_producer():
 async def async_predict(request: SimplePredictRequest, 
                         producer: KafkaProducer = Depends(lambda: kafka_producer)) -> AsyncPredictResponse:
 
+    with sentry_sdk.configure_scope() as scope:
+        scope.set_tag("endpoint", "async_predict")
+        scope.set_tag("http_method", "POST")
+        scope.set_context("request_data", {
+            "item_id": request.item_id
+        })
+
     try:
         logger.info(f"""Processing ad moderation request: item_id - {request.item_id}""")
 
@@ -58,22 +67,64 @@ async def async_predict(request: SimplePredictRequest,
         if not success:
             logger.error(f"Failed to send Kafka message for task {moderation_result.id}")
 
+            with sentry_sdk.configure_scope() as scope:
+                scope.set_tag("error_type", "kafka_send_failed")
+                scope.set_context("error_details", {
+                    "item_id": request.item_id,
+                    "task_id": moderation_result.id
+                })
+            
+            sentry_sdk.capture_message(
+                f"Kafka message send failed for task {moderation_result.id}",
+                level="warning",
+                extras={
+                    "item_id": request.item_id,
+                    "task_id": moderation_result.id
+                }
+            )
+
         return AsyncPredictResponse(
             task_id=moderation_result.id,
             status="pending",
             message="Moderation request accepted"
         )
         
-    except AdNotFoundError:
+    except AdNotFoundError as e:
+
+        sentry_sdk.capture_exception(e)
+        sentry_sdk.set_tag("error_type", "ad_not_found")
+        sentry_sdk.set_context("error_details", {
+            "item_id": request.item_id
+        })
+
+        PREDICTION_ERRORS_TOTAL.labels(error_type = "ad_error").inc()
         raise HTTPException(
             status_code=404,
             detail=f"Advertisement with ID {request.item_id} is not found"
         )
     except ModelNotLoadedError:
+
+        with sentry_sdk.configure_scope() as scope:
+            scope.set_tag("error_type", "model_not_loaded")
+            scope.set_context("error_details", {
+                "item_id": request.item_id
+            })
+
+        PREDICTION_ERRORS_TOTAL.labels(error_type = "model_unavailable").inc()
         raise HTTPException(
                 status_code=503,
                 detail="Model is not loaded. Service temporarily unavailable."
             )
     except Exception as e:
+
+        with sentry_sdk.configure_scope() as scope:
+            scope.set_tag("error_type", "prediction_error")
+            scope.set_context("error_details", {
+                "item_id": request.item_id,
+                "error": str(e),
+                "error_type": type(e).__name__
+            })
+
+        PREDICTION_ERRORS_TOTAL.labels(error_type = "prediction_error").inc()
         logger.error(f'Error sending a message: {str(e)}')
         raise HTTPException(status_code=500, detail=f'Internal server error: {str(e)}')

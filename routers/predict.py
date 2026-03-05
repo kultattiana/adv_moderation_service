@@ -9,6 +9,8 @@ from errors import ModelNotLoadedError, AdNotFoundError
 import logging
 from typing import Optional
 from pydantic import BaseModel
+from observability.metrics import PREDICTION_ERRORS_TOTAL
+from routers.health import sentry_sdk
 
 logging.basicConfig(
     level=logging.INFO,
@@ -32,6 +34,21 @@ class CreateModerationInDto(BaseModel):
     
 @router.post("/predict", response_model = PredictResponse)
 async def predict(request: PredictRequest) -> PredictResponse:
+
+    with sentry_sdk.configure_scope() as scope:
+        scope.set_tag("endpoint", "predict")
+        scope.set_tag("http_method", "POST")
+        scope.set_context("request_data", {
+            "seller_id": request.seller_id,
+            "item_id": request.item_id,
+            "is_verified_seller": request.is_verified_seller,
+            "category": request.category,
+            "images_qty": request.images_qty,
+            "name": request.name,
+            "description": request.description
+        })
+        scope.set_user({"id": str(request.seller_id)})
+
     try:      
         logger.info(f"""Processing ad moderation request: seller_id - {request.seller_id}, item_id - {request.item_id}, name - {request.name}, 
                             is_verified_seller - {request.is_verified_seller}, description - {request.description}, 
@@ -52,18 +69,41 @@ async def predict(request: PredictRequest) -> PredictResponse:
         )
         return PredictResponse(is_violation=is_violation, probability = probability)
     
-    except ModelNotLoadedError:
+    except ModelNotLoadedError as e:
+
+        with sentry_sdk.configure_scope() as scope:
+            scope.set_tag("error_type", "model_not_loaded")
+            scope.set_context("error_details", {
+                "seller_id": request.seller_id,
+                "item_id": request.item_id
+            })
+        
         raise HTTPException(
                 status_code=503,
                 detail="Model is not loaded. Service temporarily unavailable."
             )
     except Exception as e:
+        with sentry_sdk.configure_scope() as scope:
+            scope.set_tag("error_type", "prediction_error")
+            scope.set_context("error_details", {
+                "seller_id": request.seller_id,
+                "item_id": request.item_id,
+                "error": str(e),
+                "error_type": type(e).__name__
+            })
         logger.error(f'Error processing ad moderation: {str(e)}')
         raise HTTPException(status_code=500, detail=f'Internal server error: {str(e)}')
     
 
 @router.post("/simple_predict/{item_id}", response_model=PredictResponse)
 async def simple_predict(request: SimplePredictRequest) -> PredictResponse:
+
+    with sentry_sdk.configure_scope() as scope:
+        scope.set_tag("endpoint", "simple_predict")
+        scope.set_tag("http_method", "POST")
+        scope.set_context("request_data", {
+            "item_id": request.item_id
+        })
 
     try:
         logger.info(f"""Processing ad moderation request: item_id - {request.item_id}""")
@@ -83,16 +123,42 @@ async def simple_predict(request: SimplePredictRequest) -> PredictResponse:
         )
         return PredictResponse(is_violation=is_violation, probability = probability)
         
-    except AdNotFoundError:
+    except AdNotFoundError as e:
+
+        sentry_sdk.capture_exception(e)
+        sentry_sdk.set_tag("error_type", "ad_not_found")
+        sentry_sdk.set_context("error_details", {
+            "item_id": request.item_id
+        })
+
+        PREDICTION_ERRORS_TOTAL.labels(error_type = "ad_error").inc()
         raise HTTPException(
             status_code=404,
             detail=f"Advertisement with ID {request.item_id} is not found"
         )
     except ModelNotLoadedError:
+
+        with sentry_sdk.configure_scope() as scope:
+            scope.set_tag("error_type", "model_not_loaded")
+            scope.set_context("error_details", {
+                "item_id": request.item_id
+            })
+
+        PREDICTION_ERRORS_TOTAL.labels(error_type = "model_unavailable").inc()
         raise HTTPException(
                 status_code=503,
                 detail="Model is not loaded. Service temporarily unavailable."
             )
     except Exception as e:
+
+        with sentry_sdk.configure_scope() as scope:
+            scope.set_tag("error_type", "prediction_error")
+            scope.set_context("error_details", {
+                "item_id": request.item_id,
+                "error": str(e),
+                "error_type": type(e).__name__
+            })
+
+        PREDICTION_ERRORS_TOTAL.labels(error_type = "prediction_error").inc()
         logger.error(f'Error processing ad moderation: {str(e)}')
         raise HTTPException(status_code=500, detail=f'Internal server error: {str(e)}')

@@ -30,6 +30,11 @@ python -m workers.moderation_worker
 uvicorn main:app --reload --port 8000
 ```
 
+### Запуск нагрузочного тестирования
+```bash
+k6 run load/load_test.js
+```
+
 ### Запуск всех тестов
 ```bash
 pytest tests/
@@ -44,6 +49,12 @@ pytest -m integration
 ```bash
 pytest -m "not integration"
 ```
+
+### Дашборд в Grafana
+Код дашборда в формате json лежит по пути observability/grafana_screenshots, там же лежат скрины дашборда
+
+### Логи ошибок в Sentry
+Скрины интерфейса Sentry лежат в папке sentry_screenshots
 
 ### Документация API
 После запуска сервера доступна автоматическая документация Swagger UI: http://localhost:8000/docs

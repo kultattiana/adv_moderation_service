@@ -24,7 +24,7 @@ class AdPostgresStorage:
             RETURNING *
         '''
 
-        async with get_pg_connection() as connection:
+        async with get_pg_connection(operation="insert") as connection:
             return dict(await connection.fetchrow(query, seller_id, name, 
                                                   description, category, images_qty))
     
@@ -37,7 +37,7 @@ class AdPostgresStorage:
             LIMIT 1
         '''
 
-        async with get_pg_connection() as connection:
+        async with get_pg_connection(operation="select") as connection:
             row = await connection.fetchrow(query, item_id)
 
             if row:
@@ -62,7 +62,7 @@ class AdPostgresStorage:
             LIMIT 1
         '''
         
-        async with get_pg_connection() as connection:
+        async with get_pg_connection(operation="select") as connection:
             row = await connection.fetchrow(query, item_id)
             
             if row:
@@ -77,7 +77,7 @@ class AdPostgresStorage:
             RETURNING *
         '''
         
-        async with get_pg_connection() as connection:
+        async with get_pg_connection(operation="delete") as connection:
             row = await connection.fetchrow(query, item_id)
             
             if row:
@@ -94,7 +94,7 @@ class AdPostgresStorage:
             ORDER BY created_at DESC
         '''
         
-        async with get_pg_connection() as connection:
+        async with get_pg_connection(operation="select") as connection:
             rows = await connection.fetch(query, seller_id)
 
             if rows:
@@ -108,7 +108,7 @@ class AdPostgresStorage:
             ORDER BY created_at DESC
         '''
         
-        async with get_pg_connection() as connection:
+        async with get_pg_connection(operation="select") as connection:
             rows = await connection.fetch(query)
             return [dict(row) for row in rows]
     
@@ -130,7 +130,7 @@ class AdPostgresStorage:
             RETURNING *
         '''
 
-        async with get_pg_connection() as connection:
+        async with get_pg_connection(operation="update") as connection:
             row = await connection.fetchrow(query, id, *args)
 
             if row:

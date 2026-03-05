@@ -145,6 +145,7 @@ class TestAdAPIUnit:
         with patch('services.advertisements.AdvertisementService.ad_repo', mock_ad_repo):
             new_description = "Better description"
             updated_item = {**created_item_data, 'description': new_description}
+            mock_ad_storage.select_by_item_id.return_value = created_item_data
             mock_ad_storage.update.return_value = updated_item
             
             response = app_client_with_mocks.patch(
@@ -165,6 +166,7 @@ class TestAdAPIUnit:
                                     moderation_repo=mock_moderation_repo)
 
         with patch('services.advertisements.AdvertisementService.ad_repo', mock_ad_repo):
+            mock_ad_storage.select_by_item_id.return_value = created_item_data
             mock_ad_storage.delete.return_value = created_item_data
             
             response = app_client_with_mocks.delete(
@@ -223,6 +225,7 @@ class TestAdAPIUnit:
                                     moderation_repo=mock_moderation_repo)
         
         with patch('services.advertisements.AdvertisementService.ad_repo', mock_ad_repo):
+            mock_ad_storage.select_by_item_id.return_value = created_item_data
             mock_ad_storage.update.return_value = closed_item
             response = app_client_with_mocks.patch(
                 f'/ads/close/{created_item_data["item_id"]}',
@@ -244,6 +247,7 @@ class TestAdAPIUnit:
         mock_ad_repo = AdRepository(ad_storage=mock_ad_storage, seller_storage=mock_seller_storage, 
                                     moderation_repo=mock_moderation_repo)
         non_existent_id = 99999
+        mock_ad_storage.select_by_item_id.side_effect = AdNotFoundError()
         mock_ad_storage.update.side_effect = AdNotFoundError()
         
         with patch('services.advertisements.AdvertisementService.ad_repo', mock_ad_repo):
@@ -255,4 +259,4 @@ class TestAdAPIUnit:
             assert response.status_code == HTTPStatus.NOT_FOUND
             assert f'Item {non_existent_id} is not found' in response.json()['detail']
             
-            mock_ad_storage.update.assert_called_once()
+            mock_ad_storage.select_by_item_id.assert_called_once()

@@ -8,7 +8,6 @@ import os
 import uuid
 from fastapi import FastAPI, HTTPException
 from unittest.mock import AsyncMock, patch
-from routers import predict
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from clients.postgres import get_pg_connection
 from clients.redis import get_redis_connection
