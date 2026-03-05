@@ -77,7 +77,7 @@ async def predict(request: PredictRequest) -> PredictResponse:
                 "seller_id": request.seller_id,
                 "item_id": request.item_id
             })
-        
+        PREDICTION_ERRORS_TOTAL.labels(error_type = "model_unavailable").inc()
         raise HTTPException(
                 status_code=503,
                 detail="Model is not loaded. Service temporarily unavailable."
@@ -92,6 +92,7 @@ async def predict(request: PredictRequest) -> PredictResponse:
                 "error_type": type(e).__name__
             })
         logger.error(f'Error processing ad moderation: {str(e)}')
+        PREDICTION_ERRORS_TOTAL.labels(error_type = "prediction_error").inc()
         raise HTTPException(status_code=500, detail=f'Internal server error: {str(e)}')
     
 
