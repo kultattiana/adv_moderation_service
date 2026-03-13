@@ -121,6 +121,17 @@ def created_account_data(seller_data) -> Mapping[str, Any]:
     }
 
 @pytest.fixture
+def blocked_account(seller_data) -> Mapping[str, Any]:
+    unique_id = str(uuid.uuid4())[:8]
+    return {
+        'id': 1,
+        'login': seller_data['username'],
+        'seller_id': 1,
+        'password': seller_data['password'],
+        'is_blocked': True
+    }
+
+@pytest.fixture
 def item_data() -> Mapping[str, Any]:
     unique_id = str(uuid.uuid4())[:8]
     return {
@@ -150,6 +161,7 @@ def created_seller(app_client: TestClient,
     response = app_client.post('/sellers/', json=seller_data)
     assert response.status_code == HTTPStatus.CREATED
     seller = response.json()
+    seller['password'] = seller_data['password']
     yield seller
 
     account = {

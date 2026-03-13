@@ -61,13 +61,16 @@ class TestAuthUnit:
         seller_repo = AsyncMock()
         seller_repo.get_by_seller_id.return_value = SellerModel(**created_seller_data)
 
-        auth_service = AuthService(seller_repo=seller_repo)
+        account_repo = AsyncMock()
+        account = AccountModel(id=1, seller_id=1, login="test", password="test", is_blocked=False)
+        account_repo.get_by_id.return_value = account
+
+        auth_service = AuthService(seller_repo=seller_repo, account_repo=account_repo)
         
         valid_token = auth_service._build_user_token(
             SellerModel(**created_seller_data),
-            AccountModel(id=1, seller_id=1, login="test", password="test", is_blocked=False)
+            account
         )
-
 
         seller = await auth_service.verify(valid_token)
 
@@ -83,11 +86,13 @@ class TestAuthUnit:
 
         seller_repo = AsyncMock()
         seller_repo.get_by_seller_id.return_value = SellerModel(**created_seller_data)
-
-        auth_service = AuthService(seller_repo=seller_repo)
-        
         account = AccountModel(id=1, seller_id=1, login="test", password="test", is_blocked=False)
 
+        account_repo = AsyncMock()
+        account_repo.get_by_id.return_value = account
+
+        auth_service = AuthService(seller_repo=seller_repo, account_repo=account_repo)
+        
         original_ttl = auth_service._USER_TOKEN_TTL
 
         try:
@@ -99,15 +104,17 @@ class TestAuthUnit:
         with pytest.raises(UnauthorizedError):
             await auth_service.verify(expired_token)
 
-    async def test_verification_with_blocked_account_in_token(self, created_seller_data):
+    async def test_verification_with_blocked_account_in_token(self, created_seller_data, blocked_account):
 
         seller_repo = AsyncMock()
         seller_repo.get_by_seller_id.return_value = SellerModel(**created_seller_data)
 
-        auth_service = AuthService(seller_repo=seller_repo)
+        account_repo = AsyncMock()
+        account_repo.get_by_id.return_value = AccountModel(**blocked_account)
+
+        auth_service = AuthService(seller_repo=seller_repo, account_repo=account_repo)
         
-        blocked_account = AccountModel(id=1, seller_id=1, login="test", password="test", is_blocked=True)
-        token_with_blocked = auth_service._build_user_token(SellerModel(**created_seller_data), blocked_account)
+        token_with_blocked = auth_service._build_user_token(SellerModel(**created_seller_data), AccountModel(**blocked_account))
 
         with pytest.raises(AccountBlockedError):
             await auth_service.verify(token_with_blocked)
@@ -115,9 +122,13 @@ class TestAuthUnit:
     async def test_verification_with_nonexistent_seller(self, created_seller_data):
         
         seller_repo = AsyncMock()
-        auth_service = AuthService(seller_repo=seller_repo)
 
         account = AccountModel(id=1, seller_id=999, login="test", password="test", is_blocked=False)
+        account_repo = AsyncMock()
+        account_repo.get_by_id.return_value = account
+
+        auth_service = AuthService(seller_repo=seller_repo, account_repo=account_repo)
+
         token = auth_service._build_user_token(SellerModel(**created_seller_data), account)
 
         seller_repo.get_by_seller_id.side_effect = SellerNotFoundError()

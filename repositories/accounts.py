@@ -164,7 +164,7 @@ class AccountRepository:
                     password: str,
                     seller_id: int,
                     is_blocked: bool) -> AccountModel:
-        
+
         salt = generate_salt()
         hashed_password = hash_password(password=password, salt=salt)
         stored_password = f"{hashed_password}:{salt}"

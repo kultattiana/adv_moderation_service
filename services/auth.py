@@ -57,9 +57,10 @@ class AuthService:
         if seller_id := user_payload.get('seller_id'):
             try:
         
-                is_blocked = user_payload.get('is_blocked')
-                
-                if is_blocked:
+                account_id = user_payload.get('account_id')
+                account = await self.account_repo.get_by_id(account_id)
+
+                if account.is_blocked:
                     raise AccountBlockedError()
                 
                 seller = await self.seller_repo.get_by_seller_id(seller_id)

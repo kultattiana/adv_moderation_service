@@ -6,6 +6,7 @@ from models.seller import SellerModel
 from repositories.moderations import ModerationRepository
 from repositories.accounts import AccountRepository
 from datetime import datetime, timezone
+from utils.hash import generate_salt, verify_password, hash_password
 
 @dataclass(frozen = True)
 class SellerPostgresStorage:
@@ -15,8 +16,8 @@ class SellerPostgresStorage:
     async def create(self, 
         username: str,
         email: str,
-        password: str,
-        is_verified: bool)-> Mapping[str, Any]:
+        password: str = None,
+        is_verified: bool = False)-> Mapping[str, Any]:
 
         query = ''' INSERT INTO sellers (username, email, password, is_verified)
                     VALUES ($1, $2, $3, $4)
@@ -144,7 +145,7 @@ class SellerRepository:
                             email: str,
                             password: str,
                             is_verified: bool) -> SellerModel:
-        
+
         raw_seller = await self.seller_storage.create(
                         username=username,
                         email=email,

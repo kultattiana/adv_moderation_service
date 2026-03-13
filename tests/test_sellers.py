@@ -11,6 +11,7 @@ from services.auth import AuthService
 from dependencies import seller_service, auth_service
 from models.seller import SellerModel
 from models.account import AccountModel
+from utils.hash import hash_password
 
 PASSWORD = 'qwerty'
 

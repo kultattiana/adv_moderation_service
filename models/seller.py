@@ -6,7 +6,7 @@ class SellerModel(BaseModel):
     seller_id: int
     username: str
     email: str
-    password: str
+    password: Optional[str] = None
     is_verified: bool = False
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
