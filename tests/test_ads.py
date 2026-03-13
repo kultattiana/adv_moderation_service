@@ -11,8 +11,8 @@ from services.advertisements import AdvertisementService
 @pytest.mark.integration
 class TestAdAPI:
 
-    def test_create_ad(self, item_data: dict, logged_seller: dict,
-                             app_client: TestClient):
+    def test_create_ad(self, item_data: dict, created_seller: dict,
+                             app_client: TestClient, override_auth):
 
         response = app_client.post('/ads/', json=item_data)
         assert response.status_code == HTTPStatus.CREATED
@@ -24,12 +24,13 @@ class TestAdAPI:
         assert created_item['images_qty'] == item_data['images_qty']
 
     
-    def test_update_description(self, app_client: TestClient, created_item: dict, logged_seller: dict):
+    def test_update_description(self, app_client: TestClient, created_item: dict, 
+                                created_seller: dict, override_auth, x_user_token):
         new_description = "Better description"
         response = app_client.patch(
             f'/ads/update/{created_item["item_id"]}',
             params={'description': new_description},
-            cookies={'x-user-id': str(logged_seller['seller_id'])}
+            cookies={'x-user-token': x_user_token}
         )
         
         assert response.status_code == HTTPStatus.OK
@@ -38,10 +39,11 @@ class TestAdAPI:
         assert updated_item['item_id'] == created_item['item_id']
         assert updated_item['description'] == "Better description"
     
-    def test_delete_ad(self, app_client: TestClient, logged_seller:dict, created_item: dict):
+    def test_delete_ad(self, app_client: TestClient, created_seller:dict, 
+                       created_item: dict, override_auth, x_user_token):
         response = app_client.delete(
             f'/ads/{created_item["item_id"]}',
-            cookies={'x-user-id': str(logged_seller['seller_id'])}
+            cookies={'x-user-token': x_user_token}
         )
         
         assert response.status_code == HTTPStatus.OK
@@ -67,8 +69,9 @@ class TestAdAPI:
         item = response.json()
         assert item['item_id'] == created_item['item_id']
     
-    def test_get_by_seller_id(self, app_client: TestClient, created_item: dict, logged_seller: dict):
-        response = app_client.get(f'/ads/list/{logged_seller["seller_id"]}')
+    def test_get_by_seller_id(self, app_client: TestClient, created_item: dict, created_seller: dict,
+                              ):
+        response = app_client.get(f'/ads/list/{created_seller["seller_id"]}')
 
         items = response.json()
         assert response.status_code == HTTPStatus.OK
@@ -77,11 +80,12 @@ class TestAdAPI:
         assert created_item['item_id'] in item_ids
     
     def test_close_ad(self, app_client: TestClient, 
-                                 created_item: dict, logged_seller: dict):
+                                 created_item: dict, created_seller: dict,
+                                 x_user_token):
         
         response = app_client.patch(
             f'/ads/close/{created_item["item_id"]}',
-            cookies={'x-user-id': str(logged_seller['seller_id'])}
+            cookies={'x-user-token': x_user_token}
         )
         
         assert response.status_code == HTTPStatus.OK
@@ -94,12 +98,12 @@ class TestAdAPI:
         assert get_response.json()['is_closed'] == True
     
     def test_close_ad_not_found_integration(self, app_client: TestClient, 
-                                           logged_seller: dict):
+                                           created_seller: dict, override_auth, x_user_token):
         
         non_existent_id = 99999
         response = app_client.patch(
             f'/ads/close/{non_existent_id}',
-            cookies={'x-user-id': str(logged_seller['seller_id'])}
+            cookies={'x-user-token': x_user_token}
         )
         
         assert response.status_code == HTTPStatus.NOT_FOUND
@@ -109,7 +113,7 @@ class TestAdAPI:
 class TestAdAPIUnit:
 
     def test_create_ad_unit(self, app_client_with_mocks, item_data,
-                            logged_seller_data, mock_ad_storage, mock_seller_storage):
+                            logged_seller_data, mock_ad_storage, mock_seller_storage, override_auth_unit):
         
         mock_ad_storage.create.return_value = {
             'item_id': 1,
@@ -137,7 +141,7 @@ class TestAdAPIUnit:
 
     
     def test_update_description_unit(self, app_client_with_mocks,
-                                    created_item_data, logged_seller_data, mock_ad_storage, mock_seller_storage):
+                                    created_item_data, logged_seller_data, mock_ad_storage, mock_seller_storage, override_auth_unit):
         
         mock_moderation_repo = AsyncMock()
         mock_ad_repo = AdRepository(ad_storage=mock_ad_storage, seller_storage=mock_seller_storage, moderation_repo=mock_moderation_repo)
@@ -159,7 +163,7 @@ class TestAdAPIUnit:
             mock_moderation_repo.invalidate_by_item_id.assert_called_once()
     
     def test_delete_ad_unit(self, app_client_with_mocks, mock_ad_storage, mock_seller_storage,
-                           created_item_data, logged_seller_data):
+                           created_item_data, logged_seller_data, override_auth_unit):
         
         mock_moderation_repo = AsyncMock()
         mock_ad_repo = AdRepository(ad_storage=mock_ad_storage, seller_storage=mock_seller_storage, 
@@ -214,7 +218,7 @@ class TestAdAPIUnit:
     
     def test_close_ad_success_unit(self, app_client_with_mocks, 
                                    created_item_data: dict, logged_seller_data: dict,
-                                   mock_ad_storage, mock_seller_storage):
+                                   mock_ad_storage, mock_seller_storage, override_auth_unit):
         closed_item = {
             **created_item_data,
             'is_closed': True
@@ -241,7 +245,7 @@ class TestAdAPIUnit:
             mock_moderation_repo.delete_all_by_item_id.assert_called_once()
     
     def test_close_ad_not_found_unit(self, app_client_with_mocks, 
-                                     logged_seller_data: dict, mock_ad_storage, mock_seller_storage):
+                                     logged_seller_data: dict, mock_ad_storage, mock_seller_storage, override_auth_unit):
         
         mock_moderation_repo = AsyncMock()
         mock_ad_repo = AdRepository(ad_storage=mock_ad_storage, seller_storage=mock_seller_storage, 

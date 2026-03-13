@@ -46,7 +46,7 @@ export function setup() {
       console.log(`Создан пользователь: ${user.username} с ID: ${user.seller_id}`);
       
       const loginPayload = {
-        email: userPayload.email,
+        login: userPayload.username,
         password: userPayload.password
       };
       
@@ -55,12 +55,14 @@ export function setup() {
       });
       
       if (loginRes.status === 200) {
-        const cookies = loginRes.cookies['x-user-id'];
+        const cookies = loginRes.cookies['x-user-token'];
+        const cookieValue = Array.isArray(cookies) ? cookies[0].value : cookies;
         users.push({
           seller_id: user.seller_id,
+          username: user.username,
           email: userPayload.email,
           password: userPayload.password,
-          cookies: { 'x-user-id': cookies }
+          cookieValue: cookieValue
         });
       }
     }
@@ -70,12 +72,13 @@ export function setup() {
   
   const ads = [];
   for (const user of users) {
+
     const loginRes = http.post(`${BASE}/login`, 
-      JSON.stringify({'email': user.email, 'password': user.password}), {
+      JSON.stringify({'login': user.username, 'password': user.password}), {
       headers: { 'Content-Type': 'application/json' },
     });
 
-    const cookies = loginRes.cookies['x-user-id'];
+    const cookies = loginRes.cookies['x-user-token'];
     const cookieValue = Array.isArray(cookies) ? cookies[0].value : cookies;
 
     for (let j = 0; j < 5; j++) {
@@ -89,7 +92,7 @@ export function setup() {
       const adRes = http.post(`${BASE}/ads/`, JSON.stringify(adPayload), {
         headers: { 
           'Content-Type': 'application/json',
-          'Cookie': `x-user-id=${cookieValue}`
+          'Cookie': `x-user-token=${cookieValue}`
         },
       });
       
@@ -116,7 +119,7 @@ export default function(data) {
   const user = randomItem(data.users);
 
   const loginRes = http.post(`${BASE}/login`, 
-    JSON.stringify({'email': user.email, 'password': user.password}), {
+    JSON.stringify({'login': user.username, 'password': user.password}), {
     headers: { 'Content-Type': 'application/json' },
   });
 
@@ -125,17 +128,17 @@ export default function(data) {
     return;
   }
 
-  const cookies = loginRes.cookies['x-user-id'];
+  const cookies = loginRes.cookies['x-user-token'];
   const cookieValue = Array.isArray(cookies) ? cookies[0].value : cookies;
 
-  const adsListRes = http.get(`${BASE}/ads/list/${user.seller_id}`, {
-    headers: { 'Cookie': `x-user-id=${cookieValue}` }
-  });
+  const adsListRes = http.get(`${BASE}/ads/list/${user.seller_id}`);
+
 
   if (adsListRes.status !== 200) {
     console.log(`Ошибка получения объявлений пользователя ${user.seller_id}: статус ${adsListRes.status}`);
     return
   }
+
 
   const ads = JSON.parse(adsListRes.body)
   const active_ads = ads.filter(ad => ad.is_closed === false)
@@ -151,7 +154,9 @@ export default function(data) {
     };
     
     const res = http.post(`${BASE}/simple_predict/${ad.item_id}`, JSON.stringify(simplePredictPayload), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json',
+                  'Cookie': `x-user-token=${cookieValue}`
+      },
     });
     
     check(res, {
@@ -165,7 +170,9 @@ export default function(data) {
     };
     
     const res = http.post(`${BASE}/async_predict/${ad.item_id}`, JSON.stringify(asyncPredictPayload), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json',
+        'Cookie': `x-user-token=${cookieValue}`
+      },
     });
     
     check(res, {
@@ -188,10 +195,13 @@ export default function(data) {
       images_qty: randomIntBetween(0, 10)
     };
     
+    const cookies = loginRes.cookies['x-user-token']
+    const cookieValue = Array.isArray(cookies) ? cookies[0].value : cookies;
+
     const res = http.post(`${BASE}/ads/`, JSON.stringify(newAdPayload), {
       headers: { 
         'Content-Type': 'application/json',
-        'Cookie': `x-user-id=${user.seller_id}`
+        'Cookie': `x-user-token=${cookieValue}`
       },
     });
     
@@ -206,11 +216,8 @@ export default function(data) {
   }
   
   else if (scenario <= 90) {
-    const res = http.get(`${BASE}/ads/list/${user.seller_id}`, {
-      headers: {
-        'Cookie': `x-user-id=${user.seller_id}`
-      }
-    });
+
+    const res = http.get(`${BASE}/ads/list/${user.seller_id}`);
     
     check(res, {
       'get seller ads status is 200': (r) => r.status === 200,
@@ -218,9 +225,12 @@ export default function(data) {
   }
   
   else if (scenario <= 93) {
+    const cookies = loginRes.cookies['x-user-token']
+    const cookieValue = Array.isArray(cookies) ? cookies[0].value : cookies;
+
     const updateRes = http.patch(`${BASE}/ads/update/${ad.item_id}?description=${encodeURIComponent('Обновленное описание ' + Date.now())}`, null, {
       headers: {
-        'Cookie': `x-user-id=${user.seller_id}`
+        'Cookie': `x-user-token=${cookieValue}`
       }
     });
     
@@ -245,7 +255,9 @@ export default function(data) {
     };
     
     const res = http.post(`${BASE}/async_predict/9999999`, JSON.stringify(asyncPredictPayload), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json',
+        'Cookie': `x-user-token=${cookieValue}`
+      },
     });
   }
   

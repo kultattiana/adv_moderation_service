@@ -9,3 +9,9 @@ class ModerationNotFoundError(Exception):
 
 class AdNotFoundError(Exception):
     pass
+
+class UnauthorizedError(Exception):
+    pass
+
+class AccountBlockedError(Exception):
+    pass

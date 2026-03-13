@@ -11,6 +11,10 @@ from pydantic import BaseModel
 from clients.kafka import KafkaProducer, kafka_producer
 from observability.metrics import PREDICTION_ERRORS_TOTAL
 from routers.health import sentry_sdk
+from dependencies import ModServiceDepend
+from typing import Annotated
+from auth_middleware.auth import auth
+from models.seller import SellerModel
 
 logging.basicConfig(
     level=logging.INFO,
@@ -20,8 +24,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Prediction"])
-
-mod_service = ModerationService()
 
 class CreateModerationInDto(BaseModel):
     item_id: int
@@ -39,6 +41,8 @@ async def get_kafka_producer():
 
 @router.post("/async_predict/{item_id}", response_model=AsyncPredictResponse)
 async def async_predict(request: SimplePredictRequest, 
+                        mod_service: ModServiceDepend,
+                        _: Annotated[SellerModel, Depends(auth)],
                         producer: KafkaProducer = Depends(lambda: kafka_producer)) -> AsyncPredictResponse:
 
     with sentry_sdk.configure_scope() as scope:

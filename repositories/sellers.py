@@ -4,10 +4,13 @@ from clients.postgres import get_pg_connection
 from errors import SellerNotFoundError
 from models.seller import SellerModel
 from repositories.moderations import ModerationRepository
+from repositories.accounts import AccountRepository
 from datetime import datetime, timezone
 
 @dataclass(frozen = True)
 class SellerPostgresStorage:
+
+    account_repo = AccountRepository()
 
     async def create(self, 
         username: str,
@@ -57,23 +60,38 @@ class SellerPostgresStorage:
             
             raise SellerNotFoundError()
     
-    async def select_by_login_and_password(self, email: str, password: str) -> Mapping[str, Any]:
+    async def select_by_login_and_password(self, login: str, password: str) -> Mapping[str, Any]:
         query = '''
             SELECT *
             FROM sellers
             WHERE
-                email = $1::TEXT
+                username = $1::TEXT
                 AND password = $2::TEXT
             LIMIT 1
         '''
 
         async with get_pg_connection(operation="select") as connection:
-            row = await connection.fetchrow(query, email, password)
+            row = await connection.fetchrow(query, login, password)
 
             if row:
                 return dict(row)
             
             raise SellerNotFoundError()
+    
+    async def select_by_account_id(self, account_id: int) -> Mapping[str, Any]:
+        query = '''
+            SELECT *
+            FROM sellers
+            WHERE
+                account_id = $1::INTEGER
+            LIMIT 1
+        '''
+
+        async with get_pg_connection(operation="select") as connection:
+            row = await connection.fetchrow(query, account_id)
+
+            if row:
+                return dict(row)
     
     
     async def select_many(self) -> Sequence[Mapping[str, Any]]:
@@ -120,6 +138,7 @@ class SellerPostgresStorage:
 class SellerRepository:
     seller_storage: SellerPostgresStorage = SellerPostgresStorage()
     moderation_repo: ModerationRepository = ModerationRepository()
+    account_repo: AccountRepository = AccountRepository()
     
     async def create(self, username: str,
                             email: str,
@@ -132,14 +151,26 @@ class SellerRepository:
                         password=password,
                         is_verified=is_verified
                     )
+        
+        raw_account = await self.account_repo.create(
+                        login=username,
+                        password=password,
+                        seller_id=raw_seller['seller_id'],
+                        is_blocked=False
+                    )
+        
         return SellerModel(**raw_seller)
     
     async def get_by_seller_id(self, seller_id: int) -> SellerModel:
         raw_seller = await self.seller_storage.select_by_seller_id(seller_id)
         return SellerModel(**raw_seller)
     
-    async def get_by_login_and_password(self, email: str, password: str) -> SellerModel:
-        raw_seller = await self.seller_storage.select_by_login_and_password(email, password)
+    async def get_by_login_and_password(self, login: str, password: str) -> SellerModel:
+        raw_seller = await self.seller_storage.select_by_login_and_password(login, password)
+        return SellerModel(**raw_seller)  
+    
+    async def get_by_account_id(self, account_id: int) -> SellerModel:
+        raw_seller = await self.seller_storage.select_by_account_id(account_id)
         return SellerModel(**raw_seller)  
     
     async def update(self, seller_id: int, **changes: Mapping[str, Any]) -> SellerModel:

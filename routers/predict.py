@@ -11,6 +11,10 @@ from typing import Optional
 from pydantic import BaseModel
 from observability.metrics import PREDICTION_ERRORS_TOTAL
 from routers.health import sentry_sdk
+from dependencies import PredServiceDepend, ModServiceDepend
+from typing import Annotated
+from auth_middleware.auth import auth
+from models.seller import SellerModel
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,8 +25,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Prediction"])
 
-pred_service = PredictionService()
-mod_service = ModerationService()
 
 class CreateModerationInDto(BaseModel):
     item_id: int
@@ -31,9 +33,11 @@ class CreateModerationInDto(BaseModel):
     probability: Optional[float] = None
     error_message: Optional[str] = None
 
+pred_service = PredictionService()
     
 @router.post("/predict", response_model = PredictResponse)
-async def predict(request: PredictRequest) -> PredictResponse:
+async def predict(request: PredictRequest,
+                  _: Annotated[SellerModel, Depends(auth)]) -> PredictResponse:
 
     with sentry_sdk.configure_scope() as scope:
         scope.set_tag("endpoint", "predict")
@@ -97,7 +101,9 @@ async def predict(request: PredictRequest) -> PredictResponse:
     
 
 @router.post("/simple_predict/{item_id}", response_model=PredictResponse)
-async def simple_predict(request: SimplePredictRequest) -> PredictResponse:
+async def simple_predict(request: SimplePredictRequest,
+                         mod_service: ModServiceDepend,
+                         _: Annotated[SellerModel, Depends(auth)]) -> PredictResponse:
 
     with sentry_sdk.configure_scope() as scope:
         scope.set_tag("endpoint", "simple_predict")

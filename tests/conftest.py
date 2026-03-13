@@ -18,6 +18,10 @@ from contextlib import asynccontextmanager
 from services.sellers import SellerService
 from routers import health, async_predict, ads, sellers, moderation_results, predict
 from typing import AsyncIterator
+from services.auth import AuthService
+from models.seller import SellerModel
+from models.account import AccountModel
+from auth_middleware.auth import auth
 
 from workers.moderation_worker import KafkaConsumerWorker
 
@@ -46,6 +50,33 @@ app.include_router(moderation_results.router, prefix = '/moderation_results')
 def app_client() -> Generator[TestClient, None, None]:
     return TestClient(app)
 
+@pytest.fixture
+def auth_service():
+    return AuthService()
+
+
+@pytest.fixture
+def override_auth(created_seller):
+    async def mock_auth():
+        return SellerModel(**created_seller)
+    
+    app.dependency_overrides[auth] = mock_auth
+    yield
+    app.dependency_overrides.clear()
+
+@pytest.fixture
+def override_auth_unit(created_seller_data):
+    async def mock_auth():
+        return SellerModel(**created_seller_data)
+    
+    app.dependency_overrides[auth] = mock_auth
+    yield
+    app.dependency_overrides.clear()
+
+@pytest.fixture
+def seller_repo() -> SellerRepository:
+    return SellerRepository()
+
 
 @pytest.fixture
 def valid_ad_data():
@@ -69,6 +100,27 @@ def seller_data() -> Mapping[str, Any]:
     }
 
 @pytest.fixture
+def created_account(seller_data) -> Mapping[str, Any]:
+    unique_id = str(uuid.uuid4())[:8]
+    return {
+        'id': 1,
+        'login': seller_data['username'],
+        'seller_id': 1,
+        'password': seller_data['password'],
+        'is_blocked': False
+    }
+
+@pytest.fixture
+def created_account_data(seller_data) -> Mapping[str, Any]:
+    unique_id = str(uuid.uuid4())[:8]
+    return {
+        'login': seller_data['username'],
+        'seller_id': 1,
+        'password': seller_data['password'],
+        'is_blocked': False
+    }
+
+@pytest.fixture
 def item_data() -> Mapping[str, Any]:
     unique_id = str(uuid.uuid4())[:8]
     return {
@@ -88,17 +140,66 @@ def item_zero_images() -> Mapping[str, Any]:
         'images_qty': 0
     }
 
-@pytest.fixture
-def created_seller(app_client: TestClient, seller_data: Mapping[str, Any]):
+
+
+@pytest.fixture(scope='function')
+def created_seller(app_client: TestClient, 
+                   auth_service: AuthService,
+                   created_account: Mapping[str, Any],
+                   seller_data: Mapping[str, Any]):
     response = app_client.post('/sellers/', json=seller_data)
     assert response.status_code == HTTPStatus.CREATED
     seller = response.json()
     yield seller
+
+    account = {
+        'id': 1,
+        'seller_id': seller['seller_id'],
+        **created_account
+    }
+
+    x_user_token = auth_service._build_user_token(SellerModel(**seller), AccountModel(**account))
+
     app_client.delete(
         f'/sellers/{seller["seller_id"]}',
-        cookies={'x-user-id': str(seller['seller_id'])}
-
+        cookies={'x-user-token': x_user_token}
     )
+
+@pytest.fixture(scope='function')
+def x_user_token(
+    created_seller: Mapping[str, Any],
+    created_account: Mapping[str, Any],
+    auth_service: AuthService,
+):
+    try:
+        account = {
+            'id': 1,
+            'seller_id': created_seller['seller_id'],
+            **created_account
+        }
+        x_user_token = auth_service._build_user_token(SellerModel(**created_seller), AccountModel(**account))
+        return x_user_token
+    except Exception as exc:
+        raise Exception(f'build_user_token failed: {exc}')
+
+@pytest.fixture(scope='function')
+def x_user_token_unit(
+    created_seller_data: Mapping[str, Any],
+    created_account: Mapping[str, Any],
+    auth_service: AuthService,
+):
+    try:
+        account = {
+            'id': 1,
+            'seller_id': created_seller_data['seller_id'],
+            **created_account
+        }
+        x_user_token = auth_service._build_user_token(SellerModel(**created_seller_data), AccountModel(**account))
+        return x_user_token
+    except Exception as exc:
+        raise Exception(f'build_user_token failed: {exc}')
+
+
 
 @pytest.fixture
 def logged_seller(app_client: TestClient, created_seller: dict) -> dict:
@@ -113,12 +214,22 @@ def logged_seller(app_client: TestClient, created_seller: dict) -> dict:
     return created_seller
 
 @pytest.fixture
-def created_seller_data(seller_data):
-    return {
+def created_seller_data(seller_data: dict, auth_service: AuthService, created_account: dict):
+
+    seller = {
         'seller_id': 1,
         **seller_data,
         'is_verified': False
     }
+
+    account = {
+        'id': 1,
+        'seller_id': seller['seller_id'],
+        **created_account
+    }
+
+    x_user_token = auth_service._build_user_token(SellerModel(**seller), AccountModel(**account))
+    return seller
 
 @pytest.fixture
 def logged_seller_data(created_seller_data):
@@ -126,12 +237,12 @@ def logged_seller_data(created_seller_data):
 
 
 @pytest.fixture
-def verified_seller(app_client: TestClient, logged_seller: dict) -> dict:
+def verified_seller(app_client: TestClient, created_seller: dict, x_user_token) -> dict:
     app_client.patch(
-        f'/sellers/verify/{logged_seller["seller_id"]}',
-        cookies={'x-user-id': str(logged_seller['seller_id'])}
+        f'/sellers/verify/{created_seller["seller_id"]}',
+        cookies={'x-user-token': x_user_token}
     )
-    return logged_seller
+    return created_seller
 
 @pytest.fixture
 def verified_seller_data(seller_data):
@@ -193,14 +304,15 @@ def pending_moderation(created_task_data, created_item_data):
     }
 
 @pytest.fixture
-def created_item(app_client: TestClient, item_data: Mapping[str, Any], logged_seller: Mapping[str, any]):
+def created_item(app_client: TestClient, item_data: Mapping[str, Any], 
+                 created_seller: Mapping[str, any], override_auth, x_user_token):
     response = app_client.post('/ads/', json=item_data)
     assert response.status_code == HTTPStatus.CREATED
     item = response.json()
     yield item
     app_client.delete(
         f'/ads/{item["item_id"]}',
-        cookies={'x-user-id': str(logged_seller['seller_id'])}
+        cookies={'x-user-token': x_user_token}
     )
 
 @pytest.fixture
@@ -218,14 +330,15 @@ def created_item_data() -> Mapping[str, Any]:
     }
 
 @pytest.fixture
-def created_item_zero_images(app_client: TestClient, item_zero_images: Mapping[str, Any], logged_seller: Mapping[str, any]):
+def created_item_zero_images(app_client: TestClient, item_zero_images: Mapping[str, Any], x_user_token, 
+                             created_seller: Mapping[str, any], override_auth):
     response = app_client.post('/ads/', json=item_zero_images)
     assert response.status_code == HTTPStatus.CREATED
     item = response.json()
     yield item
     app_client.delete(
         f'/ads/{item["item_id"]}',
-        cookies={'x-user-id': str(logged_seller['seller_id'])}
+        cookies={'x-user-token': x_user_token}
     )
 
 @pytest.fixture

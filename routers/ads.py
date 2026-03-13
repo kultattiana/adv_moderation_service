@@ -1,12 +1,15 @@
-from fastapi import APIRouter, HTTPException, status, Response, Request
+from fastapi import APIRouter, HTTPException, status, Response, Request, Depends
 from typing import Sequence, Mapping, Any
 from pydantic import BaseModel, Field
 from models.ad import AdModel
 from services.advertisements import AdvertisementService
 from errors import SellerNotFoundError, AdNotFoundError
+from dependencies import AdServiceDepend
+from typing import Annotated
+from auth_middleware.auth import auth
+from models.seller import SellerModel
 
 router = APIRouter(tags=['Ads'])
-ad_service = AdvertisementService()
 
 from routers.health import sentry_sdk
 
@@ -17,7 +20,9 @@ class CreateAdInDto(BaseModel):
     images_qty: int = Field(..., ge=0, le=10, description="Количество изображений от 0 до 10")
 
 @router.post('/', status_code=status.HTTP_201_CREATED)
-async def create(data: CreateAdInDto, request: Request) -> AdModel:
+async def create(data: CreateAdInDto, 
+                 ad_service: AdServiceDepend,
+                 current_seller: Annotated[SellerModel, Depends(auth)]) -> AdModel:
 
     with sentry_sdk.configure_scope() as scope:
         scope.set_tag("endpoint", "create_ad")
@@ -30,16 +35,7 @@ async def create(data: CreateAdInDto, request: Request) -> AdModel:
 
     try:
         data = dict(data)
-        current_seller_id = request.cookies.get('x-user-id')
-        if not current_seller_id:
-            sentry_sdk.capture_message(
-                "Unauthorized attempt to create ad",
-                level="warning"
-            )
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail='Unauthorized',
-            )
+        current_seller_id = current_seller.seller_id
         data['seller_id'] = int(current_seller_id)
         sentry_sdk.set_user({"id": current_seller_id})
     
@@ -59,7 +55,7 @@ async def create(data: CreateAdInDto, request: Request) -> AdModel:
         )
 
 @router.get('/{item_id}')
-async def get_by_item_id(item_id: int) -> AdModel:
+async def get_by_item_id(item_id: int, ad_service: AdServiceDepend) -> AdModel:
 
     with sentry_sdk.configure_scope() as scope:
         scope.set_tag("endpoint", "get_ad_by_id")
@@ -85,7 +81,7 @@ async def get_by_item_id(item_id: int) -> AdModel:
         )
 
 @router.get('/list/{seller_id}')
-async def get_by_seller_id(seller_id: int) -> Sequence[AdModel]:
+async def get_by_seller_id(seller_id: int, ad_service: AdServiceDepend) -> Sequence[AdModel]:
 
     with sentry_sdk.configure_scope() as scope:
         scope.set_tag("endpoint", "get_ads_by_seller")
@@ -111,8 +107,11 @@ async def get_by_seller_id(seller_id: int) -> Sequence[AdModel]:
         )
 
 @router.delete('/{item_id}')
-async def delete(item_id: int, request: Request) -> AdModel:
-    current_seller_id = request.cookies.get('x-user-id')
+async def delete(item_id: int, 
+                 ad_service: AdServiceDepend,
+                 current_seller: Annotated[SellerModel, Depends(auth)]) -> AdModel:
+    
+    current_seller_id = current_seller.seller_id
 
     with sentry_sdk.configure_scope() as scope:
         scope.set_tag("endpoint", "delete_ad")
@@ -122,16 +121,6 @@ async def delete(item_id: int, request: Request) -> AdModel:
             "seller_id": current_seller_id
         })
 
-    if not current_seller_id:
-        sentry_sdk.capture_message(
-            "Unauthorized attempt to delete ad",
-            level="warning",
-            extras={"item_id": item_id}
-        )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail='Unauthorized',
-        )
     sentry_sdk.set_user({"id": current_seller_id})
     try:
         ad = await ad_service.get_by_item_id(item_id)
@@ -168,7 +157,7 @@ async def delete(item_id: int, request: Request) -> AdModel:
     
 
 @router.get('/', status_code=status.HTTP_200_OK)
-async def get_many() -> Sequence[AdModel]:
+async def get_many(ad_service: AdServiceDepend) -> Sequence[AdModel]:
     return await ad_service.get_many()
     
 
@@ -176,9 +165,10 @@ async def get_many() -> Sequence[AdModel]:
 @router.patch('/update/{item_id}')
 async def update_description(item_id: int, 
                             description: str,
-                            request: Request) -> AdModel:
+                            ad_service: AdServiceDepend,
+                            current_seller: Annotated[SellerModel, Depends(auth)]) -> AdModel:
     
-    current_seller_id = request.cookies.get('x-user-id')
+    current_seller_id = current_seller.seller_id
 
     with sentry_sdk.configure_scope() as scope:
         scope.set_tag("endpoint", "update_ad")
@@ -187,19 +177,6 @@ async def update_description(item_id: int,
             "item_id": item_id,
             "seller_id": current_seller_id
         })
-
-    if not current_seller_id:
-
-        sentry_sdk.capture_message(
-            "Unauthorized attempt to update ad",
-            level="warning",
-            extras={"item_id": item_id}
-        )
-
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail='Unauthorized',
-        )
     
     sentry_sdk.set_user({"id": current_seller_id})
     
@@ -236,9 +213,11 @@ async def update_description(item_id: int,
         )
 
 @router.patch('/close/{item_id}')
-async def close(item_id: int, request: Request) -> AdModel:
+async def close(item_id: int, 
+                ad_service: AdServiceDepend,
+                current_seller: Annotated[SellerModel, Depends(auth)]) -> AdModel:
     
-    current_seller_id = request.cookies.get('x-user-id')
+    current_seller_id = current_seller.seller_id
 
     with sentry_sdk.configure_scope() as scope:
         scope.set_tag("endpoint", "close_ad")
@@ -247,17 +226,6 @@ async def close(item_id: int, request: Request) -> AdModel:
             "item_id": item_id,
             "seller_id": current_seller_id
         })
-
-    if not current_seller_id:
-        sentry_sdk.capture_message(
-            "Unauthorized attempt to close ad",
-            level="warning",
-            extras={"item_id": item_id}
-        )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail='Unauthorized',
-        )
 
     sentry_sdk.set_user({"id": current_seller_id})
     

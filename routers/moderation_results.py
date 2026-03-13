@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Response, Request
+from fastapi import APIRouter, HTTPException, status, Response, Request, Depends
 from typing import Sequence, Mapping, Any
 from services.moderations import ModerationService
 from errors import ModerationNotFoundError
@@ -6,6 +6,10 @@ from models.moderation_result import ErrorModerationResultResponse, ModerationRe
 from models.moderation import ModerationModel
 import logging
 from routers.health import sentry_sdk
+from dependencies import ModServiceDepend
+from typing import Annotated
+from auth_middleware.auth import auth
+from models.seller import SellerModel
 
 logging.basicConfig(
     level=logging.INFO,
@@ -15,10 +19,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Moderation Results"])
-mod_service = ModerationService()
 
 @router.get('/{task_id}')
-async def get_by_task_id(task_id: int):
+async def get_by_task_id(task_id: int,
+                         mod_service: ModServiceDepend):
 
     with sentry_sdk.configure_scope() as scope:
         scope.set_tag("endpoint", "get_moderation_by_task_id")
@@ -65,7 +69,9 @@ async def get_by_task_id(task_id: int):
         )
 
 @router.delete('/{task_id}')
-async def delete(task_id: int, request: Request) -> ModerationModel:
+async def delete(task_id: int, 
+                 mod_service: ModServiceDepend,
+                 current_seller: Annotated[SellerModel, Depends(auth)]) -> ModerationModel:
 
     with sentry_sdk.configure_scope() as scope:
         scope.set_tag("endpoint", "delete_moderation")
@@ -74,7 +80,7 @@ async def delete(task_id: int, request: Request) -> ModerationModel:
             "task_id": task_id
         })
         
-        user_id = request.cookies.get('x-user-id')
+        user_id = current_seller.seller_id
         if user_id:
             scope.set_user({"id": user_id})
 
@@ -94,5 +100,5 @@ async def delete(task_id: int, request: Request) -> ModerationModel:
         )
 
 @router.get('/', status_code=status.HTTP_200_OK)
-async def get_many() -> Sequence[ModerationModel]:
+async def get_many(mod_service: ModServiceDepend) -> Sequence[ModerationModel]:
     return await mod_service.get_many()

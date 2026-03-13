@@ -15,3 +15,5 @@ async_lru
 pytest-asyncio
 prometheus-client
 sentry-sdk[fastapi]
+pyjwt
+pytest-freezegun

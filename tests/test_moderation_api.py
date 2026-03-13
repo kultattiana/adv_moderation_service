@@ -6,6 +6,7 @@ from repositories.moderations import ModerationRepository
 from datetime import datetime
 from models.moderation import ModerationModel
 from services.moderations import ModerationService
+from dependencies import mod_service
 
 @pytest.mark.integration
 class TestModerationAPI:
@@ -48,7 +49,7 @@ class TestModerationAPI:
 class TestModerationAPIUnit:
     
     def test_async_predict_success_unit(self, app_client_with_mocks, created_moderation,
-                                       created_item_data):
+                                       created_item_data, override_auth_unit):
         mock_producer = AsyncMock()
         mock_producer.send_moderation_request.return_value = True
 
@@ -64,9 +65,9 @@ class TestModerationAPIUnit:
         mock_moderation_redis_storage.get_latest_by_item_id.return_value = None
         mock_moderation_storage.create.return_value = created_moderation
 
+        app_client_with_mocks.app.dependency_overrides[mod_service] = lambda: mock_moderation_service
         
-        with patch('routers.async_predict.kafka_producer', mock_producer), \
-             patch('routers.async_predict.mod_service', mock_moderation_service):
+        with patch('routers.async_predict.kafka_producer', mock_producer):
             
             response = app_client_with_mocks.post(
                 f"/async_predict/{created_item_data['item_id']}",
@@ -83,7 +84,8 @@ class TestModerationAPIUnit:
             mock_moderation_redis_storage.get_latest_by_item_id.assert_called_once()
 
     
-    def test_async_predict_kafka_error_unit(self, app_client_with_mocks, created_item_data, created_moderation):
+    def test_async_predict_kafka_error_unit(self, app_client_with_mocks, created_item_data, created_moderation,
+                                            override_auth_unit):
         mock_producer = AsyncMock()
         mock_producer.send_moderation_request = AsyncMock(side_effect=ModelNotLoadedError)
         
@@ -98,9 +100,9 @@ class TestModerationAPIUnit:
         mock_moderation_redis_storage.get_latest_by_item_id.return_value = None
         mock_moderation_storage.create.return_value = created_moderation
 
-        
-        with patch('routers.async_predict.kafka_producer', mock_producer), \
-             patch('routers.async_predict.mod_service', mock_moderation_service):
+        app_client_with_mocks.app.dependency_overrides[mod_service] = lambda: mock_moderation_service
+
+        with patch('routers.async_predict.kafka_producer', mock_producer):
             
             response = app_client_with_mocks.post(
                 f"/async_predict/{created_item_data['item_id']}",
@@ -124,20 +126,20 @@ class TestModerationAPIUnit:
         mock_moderation_redis_storage.get_by_task_id.return_value = None
         mock_moderation_storage.select_by_task_id.return_value = completed_moderation
 
-        with patch('routers.moderation_results.mod_service', mock_moderation_service):
+        app_client_with_mocks.app.dependency_overrides[mod_service] = lambda: mock_moderation_service
             
-            task_id = completed_moderation["id"]
-            response = app_client_with_mocks.get(f"/moderation_results/{task_id}")
-        
-            assert response.status_code == 200
-            data = response.json()
-            assert data["task_id"] == task_id
-            assert data["status"] == "completed"
+        task_id = completed_moderation["id"]
+        response = app_client_with_mocks.get(f"/moderation_results/{task_id}")
+    
+        assert response.status_code == 200
+        data = response.json()
+        assert data["task_id"] == task_id
+        assert data["status"] == "completed"
 
-            mock_moderation_redis_storage.set_latest_by_item_id.assert_called_once()
-            mock_moderation_redis_storage.set_by_task_id.assert_called_once()
-            mock_moderation_redis_storage.get_by_task_id.assert_called_once()
-            mock_moderation_storage.select_by_task_id.assert_called_once()
+        mock_moderation_redis_storage.set_latest_by_item_id.assert_called_once()
+        mock_moderation_redis_storage.set_by_task_id.assert_called_once()
+        mock_moderation_redis_storage.get_by_task_id.assert_called_once()
+        mock_moderation_storage.select_by_task_id.assert_called_once()
 
     
     def test_moderation_result_not_found_unit(self, app_client_with_mocks, completed_moderation):
@@ -152,12 +154,12 @@ class TestModerationAPIUnit:
         mock_moderation_redis_storage.get_by_task_id.return_value = None
         mock_moderation_storage.select_by_task_id.side_effect = ModerationNotFoundError()
 
-        with patch('routers.moderation_results.mod_service', mock_moderation_service):
+        app_client_with_mocks.app.dependency_overrides[mod_service] = lambda: mock_moderation_service
             
-            task_id = completed_moderation["id"]
-            response = app_client_with_mocks.get(f"/moderation_results/{task_id}")
-        
-            assert response.status_code == 404
+        task_id = completed_moderation["id"]
+        response = app_client_with_mocks.get(f"/moderation_results/{task_id}")
+    
+        assert response.status_code == 404
 
-            mock_moderation_redis_storage.get_by_task_id.assert_called_once()
-            mock_moderation_storage.select_by_task_id.assert_called_once()
+        mock_moderation_redis_storage.get_by_task_id.assert_called_once()
+        mock_moderation_storage.select_by_task_id.assert_called_once()

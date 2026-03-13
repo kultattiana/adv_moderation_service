@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
 from main import app
-from routers.predict import pred_service
+#from routers.predict import pred_service
 from model import model_singleton
 import warnings
 
@@ -17,7 +17,7 @@ class TestPositiveCases:
         ({"images_qty": 0}, False),
         ({"is_verified_seller": False}, False),
     ])
-    def test_positive_scenarios(self, app_client, valid_ad_data, test_data, expected_result):
+    def test_positive_scenarios(self, app_client, valid_ad_data, test_data, override_auth, expected_result):
         data = {**valid_ad_data, **test_data}
         response = app_client.post("/predict", json=data)
         
@@ -29,7 +29,7 @@ class TestPositiveCases:
 class TestNegativeCases:
     """Тесты отрицательных результатов предсказания"""
     
-    def test_unverified_seller_without_images(self, app_client, valid_ad_data):
+    def test_unverified_seller_without_images(self, app_client, override_auth, valid_ad_data):
         data = {**valid_ad_data, "is_verified_seller": False, "images_qty": 0}
         response = app_client.post("/predict", json=data)
         
@@ -52,7 +52,7 @@ class TestValidation:
         ("name", "a" * 10001, "name too long"),
         ("description", "", "description must not be empty"),
     ])
-    def test_invalid_inputs(self, app_client, valid_ad_data, field, invalid_value, error_message):
+    def test_invalid_inputs(self, app_client, valid_ad_data, field, override_auth, invalid_value, error_message):
         data = valid_ad_data.copy()
         data[field] = invalid_value
         
@@ -89,7 +89,7 @@ class TestEdgeCases:
             }
         ),
     ])
-    def test_edge_scenarios(self, app_client, valid_ad_data, test_name, test_data):
+    def test_edge_scenarios(self, app_client, valid_ad_data, test_name, test_data, override_auth):
         data = {**valid_ad_data, **test_data}
         response = app_client.post("/predict", json=data)
         
@@ -108,7 +108,7 @@ class TestMissingFields:
         "category",
         "images_qty"
     ])
-    def test_missing_required_field(self, app_client, valid_ad_data, missing_field):
+    def test_missing_required_field(self, app_client, valid_ad_data, override_auth, missing_field):
         data = valid_ad_data.copy()
         del data[missing_field]
         
@@ -118,7 +118,7 @@ class TestMissingFields:
 
 class TestPredictAPIUnit:
     
-    def test_business_logic_error_handling_unit(self, app_client_with_mocks, valid_ad_data):
+    def test_business_logic_error_handling_unit(self, app_client_with_mocks, override_auth_unit, valid_ad_data):
         with patch('routers.predict.pred_service.predict', 
                   AsyncMock(side_effect=ValueError('Simulated business logic error'))):
             response = app_client_with_mocks.post("/predict", json=valid_ad_data)
@@ -127,7 +127,7 @@ class TestPredictAPIUnit:
             response_data = response.json()
             assert "Simulated business logic error" in response_data["detail"]
     
-    def test_model_unavailable_503_unit(self, app_client_with_mocks, valid_ad_data):
+    def test_model_unavailable_503_unit(self, app_client_with_mocks, override_auth_unit, valid_ad_data):
        with patch.object(model_singleton, '_model', None):
             response = app_client_with_mocks.post("/predict", json=valid_ad_data)
             
