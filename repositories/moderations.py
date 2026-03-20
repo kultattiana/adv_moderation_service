@@ -10,6 +10,8 @@ from async_lru import alru_cache
 import logging
 from datetime import datetime, date
 import json
+import time
+from observability.metrics import DB_QUERY_DURATION
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,24 +36,31 @@ class ModerationPostgresStorage:
                 '''
         
         async with get_pg_connection(operation="insert") as connection:
-            return dict(await connection.fetchrow(
+
+            start = time.perf_counter()
+            row = await connection.fetchrow(
                 query, item_id, status, is_violation, probability, error_message
-            ))
-    
-    async def ensure_idempotency(self, item_id: int,
-                                    status: str,
-                                    is_violation: bool,
-                                    probability: float,
-                                    error_message: str) -> bool:
-        query = ''' INSERT INTO moderation_results (item_id, status, is_violation, probability, error_message)
-                    VALUES ($1, $2, $3, $4, $5)
-                    RETURNING *
-                '''
-        async with get_pg_connection(operation="insert") as connection:
-            result = await connection.execute(
-               query, item_id, status, is_violation, probability, error_message
             )
-        return not result.endswith("0")
+
+            duration = time.perf_counter() - start
+            DB_QUERY_DURATION.labels(operation="insert").observe(duration)
+
+            return dict(row)
+    
+    # async def ensure_idempotency(self, item_id: int,
+    #                                 status: str,
+    #                                 is_violation: bool,
+    #                                 probability: float,
+    #                                 error_message: str) -> bool:
+    #     query = ''' INSERT INTO moderation_results (item_id, status, is_violation, probability, error_message)
+    #                 VALUES ($1, $2, $3, $4, $5)
+    #                 RETURNING *
+    #             '''
+    #     async with get_pg_connection(operation="insert") as connection:
+    #         result = await connection.execute(
+    #            query, item_id, status, is_violation, probability, error_message
+    #         )
+    #     return not result.endswith("0")
 
     
     async def select_by_task_id(self, id: int) -> Mapping[str, Any]:
@@ -63,7 +72,12 @@ class ModerationPostgresStorage:
         '''
         
         async with get_pg_connection(operation="select") as connection:
+
+            start = time.perf_counter()
             row = await connection.fetchrow(query, id)
+
+            duration = time.perf_counter() - start
+            DB_QUERY_DURATION.labels(operation="select").observe(duration)
             
             if row:
                 return dict(row)
@@ -80,7 +94,12 @@ class ModerationPostgresStorage:
         '''
         
         async with get_pg_connection(operation="select") as connection:
+
+            start = time.perf_counter()
             row = await connection.fetchrow(query, id)
+            duration = time.perf_counter() - start
+
+            DB_QUERY_DURATION.labels(operation="select").observe(duration)
             
             if row:
                 return dict(row)
@@ -96,7 +115,12 @@ class ModerationPostgresStorage:
         '''
         
         async with get_pg_connection(operation="select") as connection:
+
+            start = time.perf_counter()
             rows = await connection.fetch(query)
+            duration = time.perf_counter() - start
+            DB_QUERY_DURATION.labels(operation="select").observe(duration)
+
             return [dict(row) for row in rows]
     
     async def delete(self, id: int) -> Mapping[str, Any]:
@@ -107,7 +131,11 @@ class ModerationPostgresStorage:
         '''
         
         async with get_pg_connection(operation="delete") as connection:
+
+            start = time.perf_counter()
             row = await connection.fetchrow(query, id)
+            duration = time.perf_counter() - start
+            DB_QUERY_DURATION.labels(operation="delete").observe(duration)
             
             if row:
                 return dict(row)
@@ -117,7 +145,12 @@ class ModerationPostgresStorage:
     async def delete_by_item_id(self, item_id: int) -> None:
         query = "DELETE FROM moderation_results WHERE item_id = $1"
         async with get_pg_connection(operation="delete") as conn:
+
+            start = time.perf_counter()
             await conn.execute(query, item_id)
+            duration = time.perf_counter() - start
+
+            DB_QUERY_DURATION.labels(operation="delete").observe(duration)
     
     async def update(self, id: int, **updates: Any) -> Mapping[str, Any]:
         keys, args = [], []
@@ -136,7 +169,12 @@ class ModerationPostgresStorage:
         '''
 
         async with get_pg_connection(operation="update") as connection:
+
+            start = time.perf_counter()
             row = await connection.fetchrow(query, id, *args)
+            duration = time.perf_counter() - start
+
+            DB_QUERY_DURATION.labels(operation="update").observe(duration)
 
             if row:
                 return dict(row)
@@ -150,7 +188,13 @@ class ModerationPostgresStorage:
             WHERE seller_id = $1 AND is_closed = false
         """
         async with get_pg_connection(operation="select") as connection:
+
+            start = time.perf_counter()
             rows = await connection.fetch(query, seller_id)
+            duration = time.perf_counter() - start
+
+            DB_QUERY_DURATION.labels(operation="select").observe(duration)
+
             return [row['item_id'] for row in rows]
 
 class CustomJSONEncoder(json.JSONEncoder):
@@ -244,20 +288,6 @@ class ModerationRepository:
         
         return mod_model
     
-    async def ensure_idempotency(self, item_id: int,
-                            status: str,
-                            is_violation: bool,
-                            probability: float,
-                            error_message: str) -> bool:
-        
-        is_idempotent = await self.moderation_storage.ensure_idempotency(
-                        item_id = item_id,
-                        status = status,
-                        is_violation = is_violation,
-                        probability = probability,
-                        error_message = error_message
-                    )
-        return is_idempotent
     
     async def get_by_task_id(self, id: int) -> ModerationModel:
         raw_mod = await self.moderation_redis_storage.get_by_task_id(id)
@@ -267,7 +297,7 @@ class ModerationRepository:
         
         raw_mod = await self.moderation_storage.select_by_task_id(id)
 
-        if raw_mod and raw_mod["status"] == "completed":
+        if raw_mod:
             await self.moderation_redis_storage.set_by_task_id(id, raw_mod)
             await self.moderation_redis_storage.set_latest_by_item_id(raw_mod['item_id'], raw_mod)
 
@@ -282,10 +312,11 @@ class ModerationRepository:
 
         raw_mod = await self.moderation_storage.select_latest_by_item_id(item_id)
         
-        if raw_mod and raw_mod["status"] == "completed":
+        if raw_mod:
             await self.moderation_redis_storage.set_latest_by_item_id(item_id, raw_mod)
             await self.moderation_redis_storage.set_by_task_id(raw_mod['id'], raw_mod)
-            return ModerationModel(**raw_mod)
+            if raw_mod["status"] == "completed":
+                return ModerationModel(**raw_mod)
         
         return None
     
@@ -295,9 +326,8 @@ class ModerationRepository:
         
         mod_model = ModerationModel(**raw_mod)
 
-        if mod_model.status == "completed":
-            await self.moderation_redis_storage.set_by_task_id(mod_model.id, raw_mod)
-            await self.moderation_redis_storage.set_latest_by_item_id(mod_model.item_id, raw_mod)
+        await self.moderation_redis_storage.set_by_task_id(mod_model.id, raw_mod)
+        await self.moderation_redis_storage.set_latest_by_item_id(mod_model.item_id, raw_mod)
         
         return mod_model
 
@@ -311,7 +341,7 @@ class ModerationRepository:
         if latest and latest.id == task_id:
             await self.moderation_redis_storage.delete_latest_by_item_id(moderation.item_id)
             next_latest = await self.moderation_storage.select_latest_by_item_id(moderation.item_id)
-            if next_latest and next_latest.status == "completed":
+            if next_latest:
                 await self.moderation_redis_storage.set_latest_by_item_id(moderation.item_id, next_latest)
                 await self.moderation_redis_storage.set_by_task_id(next_latest['id'], next_latest)
                 

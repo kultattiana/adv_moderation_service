@@ -107,9 +107,6 @@ class KafkaConsumerWorker:
         if isinstance(error, self.RETRYABLE_ERRORS):
             return True
         
-        if isinstance(error, AdNotFoundError):
-            return False
-        
         return False
     
     async def get_retry_count(self, message: Dict[str, Any]) -> int:
@@ -132,7 +129,7 @@ class KafkaConsumerWorker:
             await self.process_message(message, current_retry_count)
             await self.consumer.commit()
         except Exception as e:
-            logger.error(f"Retry attempt {current_retry_count} failed: {e}")
+            logger.error(f"Attempt {current_retry_count} failed: {e}")
             if self.is_retryable_error(e) and current_retry_count < self.MAX_RETRIES:
                 await self.schedule_retry(message, current_retry_count, str(e))
             else:
@@ -153,7 +150,7 @@ class KafkaConsumerWorker:
         retry_count: int = 0
     ) -> bool:
         
-        logger.error(f"Error processing message after {retry_count} attempts: {error_message}")
+        logger.error(f"Error processing message after {retry_count} extra attempts: {error_message}")
         
         query = self.build_moderation_result(
             item_id=item_id,
@@ -162,7 +159,7 @@ class KafkaConsumerWorker:
         )
 
         try:
-            await self.mod_service.update_status(task_id, query)
+            await self.mod_service.update(task_id, query)
         except Exception as e:
             logger.error(f"Failed to update status in moderation service: {e}")
         
@@ -181,6 +178,7 @@ class KafkaConsumerWorker:
                 logger.info(f"Processing event for item_id: {item_id}")
             
             is_violation, probability = await self.ml_service.simple_predict(item_id, task_id)
+            
             logger.info(f"Got prediction")
             
             logger.info(f"Successfully processed item_id: {item_id}")
@@ -220,18 +218,6 @@ class KafkaConsumerWorker:
             async for msg in self.consumer:
                 try:
                     retry_count = await self.get_retry_count(msg.value)
-                    
-                    if retry_count >= self.MAX_RETRIES:
-                        logger.warning(f"Message exceeded max retries ({self.MAX_RETRIES}), sending to DLQ")
-                        await self._handle_error(
-                            item_id=msg.value.get("item_id"),
-                            task_id=msg.value.get("task_id"),
-                            error_message="Exceeded maximum retry attempts",
-                            original_message=msg.value,
-                            retry_count=retry_count
-                        )
-                        await self.consumer.commit()
-                        continue
                     
                     asyncio.create_task(self.process_with_retry(msg.value, retry_count))
                     await self.consumer.commit()

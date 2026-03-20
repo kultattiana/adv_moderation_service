@@ -16,11 +16,8 @@ async def get_pg_connection(operation: str = "query"):
         password=os.getenv("DB_PASSWORD", "postgres"),
         database=os.getenv("DB_NAME", "moderation_db")
     )
-
-    start = time.perf_counter()
+    
     try:
         yield conn
     finally:
-        duration = time.perf_counter() - start
-        DB_QUERY_DURATION.labels(operation=operation).observe(duration)
         await conn.close()

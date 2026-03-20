@@ -3,6 +3,7 @@ from repositories.accounts import AccountRepository
 from repositories.sellers import SellerRepository
 from unittest.mock import AsyncMock, patch
 from errors import UnauthorizedError
+from services.sellers import SellerService
 
 
 @pytest.mark.integration
@@ -10,16 +11,17 @@ from errors import UnauthorizedError
 class TestAccountRepoIntegration:
 
     async def test_create_and_get_account(self, seller_data, created_account_data: dict):
-
+        
         account_repo = AccountRepository()
-        seller_repo = SellerRepository(account_repo=account_repo)
+        seller_repo = SellerRepository()
+        seller_service = SellerService(seller_repo=seller_repo, account_repo=account_repo)
 
         seller = {
             **seller_data,
             "is_verified": False
         }
 
-        seller = await seller_repo.create(**seller)
+        seller = await seller_service.register(seller)
 
         account = await account_repo.get_by_seller_id(seller.seller_id)
 
@@ -28,8 +30,7 @@ class TestAccountRepoIntegration:
         assert account.seller_id == seller.seller_id
         assert account.is_blocked == created_account_data["is_blocked"]
 
-        assert ":" in account.password
-        hashed, salt = account.password.split(":", 1)
+        hashed, salt = account.password, account.salt
         assert len(hashed) > 0
         assert len(salt) > 0
 
@@ -46,14 +47,15 @@ class TestAccountRepoIntegration:
                                                                 created_account_data, seller_data):
         
         account_repo = AccountRepository()
-        seller_repo = SellerRepository(account_repo=account_repo)
+        seller_repo = SellerRepository()
+        seller_service = SellerService(seller_repo=seller_repo, account_repo=account_repo)
 
         seller = {
             **seller_data,
             "is_verified": False
         }
 
-        seller = await seller_repo.create(**seller)
+        seller = await seller_service.register(seller)
         account = await account_repo.get_by_seller_id(seller.seller_id)
 
         with patch('repositories.accounts.verify_password') as mock_verify:
@@ -71,14 +73,15 @@ class TestAccountRepoIntegration:
     async def test_repository_login_unverified_password(self, created_account_data, seller_data):
         
         account_repo = AccountRepository()
-        seller_repo = SellerRepository(account_repo=account_repo)
+        seller_repo = SellerRepository()
+        seller_service = SellerService(seller_repo=seller_repo, account_repo=account_repo)
 
         seller = {
             **seller_data,
             "is_verified": False
         }
 
-        seller = await seller_repo.create(**seller)
+        seller = await seller_service.register(seller)
         account = await account_repo.get_by_seller_id(seller.seller_id)
 
         with patch('repositories.accounts.verify_password') as mock_verify:
@@ -95,14 +98,15 @@ class TestAccountRepoIntegration:
     async def test_repository_block_account(self, seller_data):
 
         account_repo = AccountRepository()
-        seller_repo = SellerRepository(account_repo=account_repo)
+        seller_repo = SellerRepository()
+        seller_service = SellerService(seller_repo=seller_repo, account_repo=account_repo)
 
         seller = {
             **seller_data,
             "is_verified": False
         }
 
-        seller = await seller_repo.create(**seller)
+        seller = await seller_service.register(seller)
         created = await account_repo.get_by_seller_id(seller.seller_id)
 
         assert created.is_blocked is False
@@ -118,14 +122,15 @@ class TestAccountRepoIntegration:
     async def test_repository_update_password(self, seller_data):
 
         account_repo = AccountRepository()
-        seller_repo = SellerRepository(account_repo=account_repo)
+        seller_repo = SellerRepository()
+        seller_service = SellerService(seller_repo=seller_repo, account_repo=account_repo)
 
         seller = {
             **seller_data,
             "is_verified": False
         }
 
-        seller = await seller_repo.create(**seller)
+        seller = await seller_service.register(seller)
         created = await account_repo.get_by_seller_id(seller.seller_id)
 
         old_password = created.password
@@ -150,14 +155,15 @@ class TestAccountRepoIntegration:
     async def test_repository_delete_account(self, seller_data):
         
         account_repo = AccountRepository()
-        seller_repo = SellerRepository(account_repo=account_repo)
+        seller_repo = SellerRepository()
+        seller_service = SellerService(seller_repo=seller_repo, account_repo=account_repo)
 
         seller = {
             **seller_data,
             "is_verified": False
         }
 
-        seller = await seller_repo.create(**seller)
+        seller = await seller_service.register(seller)
         created = await account_repo.get_by_seller_id(seller.seller_id)
         
         deleted = await account_repo.delete(created.id)

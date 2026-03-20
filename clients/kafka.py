@@ -56,7 +56,7 @@ class KafkaProducer:
                 self._producer = None
     
     
-    async def send_moderation_request(self, item_id: int, task_id: int) -> bool:
+    async def send_moderation_request(self, item_id: int, task_id: int):
         message = {
             "task_id": task_id,
             "item_id": item_id,
@@ -78,16 +78,14 @@ class KafkaProducer:
             logger.info(
                 f"Moderation request sent to Kafka. Item ID: {item_id}"
             )
-            return True
             
         except KafkaError as e:
             logger.error(f"Error in Kafka during sending moderation request for item_id={item_id}: {e}")
-            return False
+            raise KafkaError()
             
         except Exception as e:
             logger.error(f"Unexpected error during sending the moderation request: {e}")
-            return False
-    
+            return Exception()
     
     @property
     def is_ready(self) -> bool:

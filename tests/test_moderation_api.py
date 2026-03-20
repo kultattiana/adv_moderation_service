@@ -63,7 +63,10 @@ class TestModerationAPIUnit:
         mock_moderation_service = ModerationService(moderation_repo=mock_moderation_repo)
         
         mock_moderation_redis_storage.get_latest_by_item_id.return_value = None
+        mock_moderation_storage.select_latest_by_item_id.return_value = None
         mock_moderation_storage.create.return_value = created_moderation
+        mock_moderation_redis_storage.set_latest_by_item_id.return_value = None
+        mock_moderation_redis_storage.set_by_task_id.return_value = None
 
         app_client_with_mocks.app.dependency_overrides[mod_service] = lambda: mock_moderation_service
         
@@ -98,7 +101,10 @@ class TestModerationAPIUnit:
         mock_moderation_service = ModerationService(moderation_repo=mock_moderation_repo)
         
         mock_moderation_redis_storage.get_latest_by_item_id.return_value = None
+        mock_moderation_storage.select_latest_by_item_id.return_value = None
         mock_moderation_storage.create.return_value = created_moderation
+        mock_moderation_redis_storage.set_latest_by_item_id.return_value = None
+        mock_moderation_redis_storage.set_by_task_id.return_value = None
 
         app_client_with_mocks.app.dependency_overrides[mod_service] = lambda: mock_moderation_service
 

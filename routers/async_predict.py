@@ -15,6 +15,7 @@ from dependencies import ModServiceDepend
 from typing import Annotated
 from auth_middleware.auth import auth
 from models.seller import SellerModel
+from aiokafka.errors import KafkaError
 
 logging.basicConfig(
     level=logging.INFO,
@@ -56,36 +57,31 @@ async def async_predict(request: SimplePredictRequest,
         logger.info(f"""Processing ad moderation request: item_id - {request.item_id}""")
 
         ready_moderation = await mod_service.get_latest_by_item_id(request.item_id)
+
         if ready_moderation and ready_moderation.status == "completed":
             return AsyncPredictResponse(
                 task_id=ready_moderation.id,
                 status=ready_moderation.status,
                 message=f"Moderation was already processed, the task_id is: {ready_moderation.id}"
             )
-
+        if ready_moderation and ready_moderation.status == "pending":
+            return AsyncPredictResponse(
+                task_id=ready_moderation.id,
+                status=ready_moderation.status,
+                message=f"Moderation is already in progress, the task_id is: {ready_moderation.id}"
+            )
+        
+        if ready_moderation and ready_moderation.status == "failed":
+            return AsyncPredictResponse(
+                task_id=ready_moderation.id,
+                status=ready_moderation.status,
+                message=f"Moderation was already processed and failed: {ready_moderation.error_message}."
+            )
+        
         mod_data = CreateModerationInDto(item_id=request.item_id, status="pending")
         moderation_result = await mod_service.register(dict(mod_data))
         
-        success = await producer.send_moderation_request(request.item_id, moderation_result.id)
-        
-        if not success:
-            logger.error(f"Failed to send Kafka message for task {moderation_result.id}")
-
-            with sentry_sdk.configure_scope() as scope:
-                scope.set_tag("error_type", "kafka_send_failed")
-                scope.set_context("error_details", {
-                    "item_id": request.item_id,
-                    "task_id": moderation_result.id
-                })
-            
-            sentry_sdk.capture_message(
-                f"Kafka message send failed for task {moderation_result.id}",
-                level="warning",
-                extras={
-                    "item_id": request.item_id,
-                    "task_id": moderation_result.id
-                }
-            )
+        await producer.send_moderation_request(request.item_id, moderation_result.id)
 
         return AsyncPredictResponse(
             task_id=moderation_result.id,
@@ -119,6 +115,28 @@ async def async_predict(request: SimplePredictRequest,
                 status_code=503,
                 detail="Model is not loaded. Service temporarily unavailable."
             )
+    
+    except KafkaError:
+        with sentry_sdk.configure_scope() as scope:
+                scope.set_tag("error_type", "kafka_send_failed")
+                scope.set_context("error_details", {
+                    "item_id": request.item_id,
+                    "task_id": moderation_result.id
+                })
+            
+        sentry_sdk.capture_message(
+            f"Kafka message send failed for task {moderation_result.id}",
+            level="warning",
+            extras={
+                "item_id": request.item_id,
+                "task_id": moderation_result.id
+            }
+        )
+
+        PREDICTION_ERRORS_TOTAL.labels(error_type = "prediction_error").inc()
+        logger.error(f'Error sending a message: {str(e)}')
+        raise HTTPException(status_code=500, detail=f"Failed to send Kafka message for task {moderation_result.id}")
+
     except Exception as e:
 
         with sentry_sdk.configure_scope() as scope:

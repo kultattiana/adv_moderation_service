@@ -18,9 +18,6 @@ class ModerationService:
         except asyncpg.exceptions.ForeignKeyViolationError:
             raise AdNotFoundError
     
-    async def ensure_idempotency(self, values: Mapping[str, Any]) -> ModerationModel:
-        return await self.moderation_repo.ensure_idempotency(**values)
-    
     async def get_many(self) -> Sequence[ModerationModel]:
         return await self.moderation_repo.get_many()
     
@@ -33,5 +30,5 @@ class ModerationService:
     async def delete(self, task_id: int) -> ModerationModel:
         return await self.moderation_repo.delete(task_id)
 
-    async def update_status(self, task_id, updates: Mapping[str, Any]) -> ModerationModel:
+    async def update(self, task_id, updates: Mapping[str, Any]) -> ModerationModel:
         return await self.moderation_repo.update(task_id, **updates)

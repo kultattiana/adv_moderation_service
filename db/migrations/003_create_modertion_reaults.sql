@@ -12,5 +12,3 @@ CREATE TABLE IF NOT EXISTS moderation_results (
 );
 
 CREATE INDEX IF NOT EXISTS idx_moderation_results_item_id ON moderation_results(item_id);
-CREATE INDEX IF NOT EXISTS idx_moderation_results_status ON moderation_results(status);
-CREATE INDEX IF NOT EXISTS idx_moderation_results_is_violation ON moderation_results(is_violation);

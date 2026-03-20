@@ -9,6 +9,4 @@ CREATE TABLE IF NOT EXISTS sellers (
 );
 
 CREATE INDEX IF NOT EXISTS idx_sellers_username ON sellers(username);
-CREATE INDEX IF NOT EXISTS idx_sellers_email ON sellers(email);
 CREATE INDEX IF NOT EXISTS idx_sellers_password ON sellers(password);
-CREATE INDEX IF NOT EXISTS idx_sellers_is_verified ON sellers(is_verified);

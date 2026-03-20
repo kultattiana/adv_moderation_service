@@ -49,8 +49,8 @@ class TestKafkaConsumerWorkerUnit:
         
         assert result is False
         
-        worker.mod_service.update_status.assert_called_once()
-        call_args = worker.mod_service.update_status.call_args[0]
+        worker.mod_service.update.assert_called_once()
+        call_args = worker.mod_service.update.call_args[0]
         assert call_args[1]["status"] == "failed"
         assert "not found" in call_args[1]["error_message"]
         

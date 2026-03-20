@@ -10,6 +10,9 @@ class ModerationNotFoundError(Exception):
 class AdNotFoundError(Exception):
     pass
 
+class KafkaSendingMessageError(Exception):
+    pass
+
 class UnauthorizedError(Exception):
     pass
 

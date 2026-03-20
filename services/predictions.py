@@ -114,7 +114,7 @@ class PredictionService:
             )
 
         logger.info(f"Updating status: {task_id}")
-        await self.mod_service.update_status(task_id, query)
+        await self.mod_service.update(task_id, query)
         
         return is_violation, violation_probability
     

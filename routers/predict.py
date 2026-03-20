@@ -3,6 +3,7 @@ sys.path.append('.')
 from fastapi import APIRouter, HTTPException, Depends, Request
 from models.predict_request import PredictRequest, SimplePredictRequest
 from models.predict_response import PredictResponse
+from models.async_predict_response import AsyncPredictResponse
 from services.predictions import PredictionService
 from services.moderations import ModerationService
 from errors import ModelNotLoadedError, AdNotFoundError
@@ -116,7 +117,8 @@ async def simple_predict(request: SimplePredictRequest,
         logger.info(f"""Processing ad moderation request: item_id - {request.item_id}""")
         ready_moderation = await mod_service.get_latest_by_item_id(request.item_id)
     
-        if ready_moderation and ready_moderation.status == "completed":
+        if ready_moderation and ready_moderation.status == 'completed':
+            logger.info(f'Prediction for item {request.item_id} is ready with status: {ready_moderation.status}')
             return PredictResponse(is_violation=ready_moderation.is_violation, 
                                    probability=ready_moderation.probability)
         
@@ -124,6 +126,7 @@ async def simple_predict(request: SimplePredictRequest,
         moderation_result = await mod_service.register(dict(mod_data))
 
         is_violation, probability = await pred_service.simple_predict(request.item_id, moderation_result.id)
+
         logger.info(
             f"Ad moderation for item {request.item_id}: "
             f"violation={is_violation}, probability={probability:.3f}"

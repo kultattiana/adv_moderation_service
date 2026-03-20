@@ -13,5 +13,3 @@ CREATE TABLE IF NOT EXISTS ads (
 );
 
 CREATE INDEX IF NOT EXISTS idx_ads_seller_id ON ads(seller_id);
-CREATE INDEX IF NOT EXISTS idx_ads_category ON ads(category);
-CREATE INDEX IF NOT EXISTS idx_ads_created_at ON ads(created_at DESC);

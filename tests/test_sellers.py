@@ -36,7 +36,7 @@ class TestSellerAPI:
             cookies={'x-user-id': str(seller['seller_id'])}
         )
     
-    def test_verify_seller(self, app_client: TestClient, created_seller: dict, x_user_token: str):
+    def test_verify_seller(self, app_client: TestClient, created_seller: dict, x_user_token: str, override_auth):
         response = app_client.patch(
             f'/sellers/verify/{created_seller["seller_id"]}',
             cookies={'x-user-token': x_user_token}
@@ -48,7 +48,9 @@ class TestSellerAPI:
         assert updated_seller['seller_id'] == created_seller['seller_id']
         assert updated_seller['is_verified'] == True
     
-    def test_delete_seller(self, app_client: TestClient, created_seller: dict, x_user_token: str):
+    def test_delete_seller(self, app_client: TestClient, created_seller: dict, x_user_token: str, override_auth):
+
+        
         response = app_client.delete(
             f'/sellers/{created_seller["seller_id"]}',
             cookies={'x-user-token': x_user_token}
@@ -88,7 +90,7 @@ class TestSellerAPI:
         logged_user = response.json()
         assert logged_user['seller_id'] == created_seller['seller_id']
     
-    def test_get_current_seller(self, app_client: TestClient, created_seller: dict, x_user_token):
+    def test_get_current_seller(self, app_client: TestClient, created_seller: dict, x_user_token, override_auth):
         response = app_client.get(
             '/sellers/current/',
             cookies={'x-user-token': x_user_token}
@@ -114,9 +116,8 @@ class TestSellerAPIUnit:
         mock_account_repo = AccountRepository(account_storage=mock_account_storage)
 
         mock_moderation_repo = AsyncMock()
-        mock_seller_repo = SellerRepository(seller_storage=mock_seller_storage, moderation_repo=mock_moderation_repo, 
-                                            account_repo=mock_account_repo)
-        mock_seller_service = SellerService(seller_repo=mock_seller_repo)
+        mock_seller_repo = SellerRepository(seller_storage=mock_seller_storage)
+        mock_seller_service = SellerService(seller_repo=mock_seller_repo, moderation_repo=mock_moderation_repo, account_repo=mock_account_repo)
 
         app_client_with_mocks.app.dependency_overrides[seller_service] = lambda: mock_seller_service
         mock_account_storage.create.return_value = created_account
@@ -138,8 +139,10 @@ class TestSellerAPIUnit:
                                 created_seller_data, override_auth_unit, x_user_token_unit):
 
         mock_moderation_repo = AsyncMock()
-        mock_seller_repo = SellerRepository(seller_storage=mock_seller_storage, moderation_repo=mock_moderation_repo)
-        mock_seller_service = SellerService(seller_repo=mock_seller_repo)
+        
+        mock_seller_repo = SellerRepository(seller_storage=mock_seller_storage)
+        mock_account_repo = AsyncMock()
+        mock_seller_service = SellerService(seller_repo=mock_seller_repo, moderation_repo=mock_moderation_repo, account_repo=mock_account_repo)
 
         app_client_with_mocks.app.dependency_overrides[seller_service] = lambda: mock_seller_service
         verified_seller = {**created_seller_data, 'is_verified': True}
@@ -154,6 +157,7 @@ class TestSellerAPIUnit:
         assert response.json()['is_verified'] == True
         mock_seller_storage.update.assert_called_once()
         mock_moderation_repo.invalidate_by_seller_id.assert_called_once()
+        mock_account_repo.invalidate_by_seller_id.assert_called_once()
     
     def test_delete_seller_unit(self, app_client_with_mocks, mock_seller_storage, 
                                 created_seller_data, x_user_token_unit, created_account, override_auth_unit):
@@ -162,9 +166,8 @@ class TestSellerAPIUnit:
         mock_account_repo = AccountRepository(account_storage=mock_account_storage)
 
         mock_moderation_repo = AsyncMock()
-        mock_seller_repo = SellerRepository(seller_storage=mock_seller_storage, moderation_repo=mock_moderation_repo,
-                                            account_repo=mock_account_repo)
-        mock_seller_service = SellerService(seller_repo=mock_seller_repo)
+        mock_seller_repo = SellerRepository(seller_storage=mock_seller_storage)
+        mock_seller_service = SellerService(seller_repo=mock_seller_repo, moderation_repo=mock_moderation_repo, account_repo=mock_account_repo)
 
         app_client_with_mocks.app.dependency_overrides[seller_service] = lambda: mock_seller_service
         mock_seller_storage.delete.return_value = created_seller_data
@@ -177,12 +180,13 @@ class TestSellerAPIUnit:
         assert response.status_code == HTTPStatus.OK
         mock_seller_storage.delete.assert_called_once_with(created_seller_data["seller_id"])
         mock_moderation_repo.delete_all_by_seller_id.assert_called_once()
+        mock_account_storage.select_accounts_by_seller_id.assert_called_once()
 
     
     def test_get_many_sellers_unit(self, app_client_with_mocks, mock_seller_storage, created_seller_data):
         mock_moderation_repo = AsyncMock()
-        mock_seller_repo = SellerRepository(seller_storage=mock_seller_storage, moderation_repo=mock_moderation_repo)
-        mock_seller_service = SellerService(seller_repo=mock_seller_repo)
+        mock_seller_repo = SellerRepository(seller_storage=mock_seller_storage)
+        mock_seller_service = SellerService(seller_repo=mock_seller_repo, moderation_repo=mock_moderation_repo)
 
         app_client_with_mocks.app.dependency_overrides[seller_service] = lambda: mock_seller_service
         mock_seller_storage.select_many.return_value = [created_seller_data]
@@ -200,9 +204,9 @@ class TestSellerAPIUnit:
         mock_account_storage = AsyncMock()
 
         mock_account_repo = AccountRepository(account_storage = mock_account_storage)
-        mock_seller_repo = SellerRepository(seller_storage=mock_seller_storage, moderation_repo=mock_moderation_repo)
+        mock_seller_repo = SellerRepository(seller_storage=mock_seller_storage)
 
-        mock_seller_service = SellerService(seller_repo=mock_seller_repo)
+        mock_seller_service = SellerService(seller_repo=mock_seller_repo, moderation_repo=mock_moderation_repo)
         mock_auth_service = AuthService(seller_repo=mock_seller_repo, account_repo=mock_account_repo)
 
         app_client_with_mocks.app.dependency_overrides[seller_service] = lambda: mock_seller_service
@@ -237,8 +241,8 @@ class TestSellerAPIUnit:
                                      created_seller_data, override_auth_unit, x_user_token_unit):
 
         mock_moderation_repo = AsyncMock()
-        mock_seller_repo = SellerRepository(seller_storage=mock_seller_storage, moderation_repo=mock_moderation_repo)
-        mock_seller_service = SellerService(seller_repo=mock_seller_repo)
+        mock_seller_repo = SellerRepository(seller_storage=mock_seller_storage)
+        mock_seller_service = SellerService(seller_repo=mock_seller_repo, moderation_repo=mock_moderation_repo)
 
         app_client_with_mocks.app.dependency_overrides[seller_service] = lambda: mock_seller_service
         mock_seller_storage.select_by_seller_id.return_value = created_seller_data
@@ -256,8 +260,8 @@ class TestSellerAPIUnit:
     def test_get_by_seller_id(self, app_client_with_mocks, mock_seller_storage, created_seller_data):
 
         mock_moderation_repo = AsyncMock()
-        mock_seller_repo = SellerRepository(seller_storage=mock_seller_storage, moderation_repo=mock_moderation_repo)
-        mock_seller_service = SellerService(seller_repo=mock_seller_repo)
+        mock_seller_repo = SellerRepository(seller_storage=mock_seller_storage)
+        mock_seller_service = SellerService(seller_repo=mock_seller_repo, moderation_repo=mock_moderation_repo)
 
         app_client_with_mocks.app.dependency_overrides[seller_service] = lambda: mock_seller_service
         mock_seller_storage.select_by_seller_id.return_value = created_seller_data

@@ -8,6 +8,8 @@ from models.predict_request import PredictRequest
 from repositories.sellers import SellerPostgresStorage
 from repositories.moderations import ModerationRepository
 from datetime import datetime, timezone
+import time
+from observability.metrics import DB_QUERY_DURATION
 
 @dataclass(frozen=True)
 class AdPostgresStorage:
@@ -25,8 +27,15 @@ class AdPostgresStorage:
         '''
 
         async with get_pg_connection(operation="insert") as connection:
-            return dict(await connection.fetchrow(query, seller_id, name, 
-                                                  description, category, images_qty))
+
+            start = time.perf_counter()
+            row = await connection.fetchrow(query, seller_id, name, 
+                                                  description, category, images_qty)
+            
+            duration = time.perf_counter() - start
+            DB_QUERY_DURATION.labels(operation="insert").observe(duration)
+
+            return dict(row)
     
     async def select_by_item_id(self, item_id: int) -> Mapping[str, any]:
 
@@ -38,7 +47,12 @@ class AdPostgresStorage:
         '''
 
         async with get_pg_connection(operation="select") as connection:
+
+            start = time.perf_counter()
             row = await connection.fetchrow(query, item_id)
+            duration = time.perf_counter() - start
+
+            DB_QUERY_DURATION.labels(operation="select").observe(duration)
 
             if row:
                 return dict(row)
@@ -63,7 +77,12 @@ class AdPostgresStorage:
         '''
         
         async with get_pg_connection(operation="select") as connection:
+
+            start = time.perf_counter()
             row = await connection.fetchrow(query, item_id)
+            duration = time.perf_counter() - start
+
+            DB_QUERY_DURATION.labels(operation="select").observe(duration)
             
             if row:
                 return dict(row)
@@ -78,7 +97,12 @@ class AdPostgresStorage:
         '''
         
         async with get_pg_connection(operation="delete") as connection:
+
+            start = time.perf_counter()
             row = await connection.fetchrow(query, item_id)
+            duration = time.perf_counter() - start
+
+            DB_QUERY_DURATION.labels(operation="delete").observe(duration)
             
             if row:
                 return dict(row)
@@ -95,7 +119,12 @@ class AdPostgresStorage:
         '''
         
         async with get_pg_connection(operation="select") as connection:
+
+            start = time.perf_counter()
             rows = await connection.fetch(query, seller_id)
+            duration = time.perf_counter() - start
+
+            DB_QUERY_DURATION.labels(operation="select").observe(duration)
 
             if rows:
                 return [dict(row) for row in rows]
@@ -109,7 +138,13 @@ class AdPostgresStorage:
         '''
         
         async with get_pg_connection(operation="select") as connection:
+
+            start = time.perf_counter()
             rows = await connection.fetch(query)
+            duration = time.perf_counter() - start
+
+            DB_QUERY_DURATION.labels(operation="select").observe(duration)
+
             return [dict(row) for row in rows]
     
     async def update(self, id: int, **updates: Any) -> Mapping[str, Any]:
@@ -131,7 +166,12 @@ class AdPostgresStorage:
         '''
 
         async with get_pg_connection(operation="update") as connection:
+
+            start = time.perf_counter()
             row = await connection.fetchrow(query, id, *args)
+            duration = time.perf_counter() - start
+
+            DB_QUERY_DURATION.labels(operation="update").observe(duration)
 
             if row:
                 return dict(row)
@@ -142,19 +182,12 @@ class AdPostgresStorage:
 @dataclass(frozen=True)
 class AdRepository:
     ad_storage: AdPostgresStorage = AdPostgresStorage()
-    seller_storage: SellerPostgresStorage = SellerPostgresStorage()
-    moderation_repo: ModerationRepository = ModerationRepository()
     
     async def create(self, seller_id: int,
                             name: str,
                             description: str,
                             category: int,
                             images_qty: int) -> AdModel:
-        
-        seller = await self.seller_storage.select_by_seller_id(seller_id)
-
-        if not seller:
-            raise SellerNotFoundError
         
         raw_ad = await self.ad_storage.create(
             seller_id=seller_id,
@@ -180,7 +213,6 @@ class AdRepository:
     
     async def delete(self, item_id: int) -> AdModel:
         raw_ad = await self.ad_storage.delete(item_id)
-        await self.moderation_repo.delete_all_by_item_id(item_id)
         return AdModel(**raw_ad)
     
 
@@ -193,10 +225,8 @@ class AdRepository:
 
     async def update(self, item_id: int, **changes: Mapping[str, Any]) -> SellerModel:
         raw_ad= await self.ad_storage.update(item_id, **changes)
-        await self.moderation_repo.invalidate_by_item_id(item_id)
         return AdModel(**raw_ad)
     
     async def close(self, item_id: int) -> None:
         raw_ad = await self.ad_storage.update(item_id, is_closed=True)
-        await self.moderation_repo.delete_all_by_item_id(item_id)
         return AdModel(**raw_ad)

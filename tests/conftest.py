@@ -107,6 +107,7 @@ def created_account(seller_data) -> Mapping[str, Any]:
         'login': seller_data['username'],
         'seller_id': 1,
         'password': seller_data['password'],
+        'salt': None,
         'is_blocked': False
     }
 
@@ -117,6 +118,7 @@ def created_account_data(seller_data) -> Mapping[str, Any]:
         'login': seller_data['username'],
         'seller_id': 1,
         'password': seller_data['password'],
+        'salt': None,
         'is_blocked': False
     }
 
@@ -128,6 +130,7 @@ def blocked_account(seller_data) -> Mapping[str, Any]:
         'login': seller_data['username'],
         'seller_id': 1,
         'password': seller_data['password'],
+        'salt': None,
         'is_blocked': True
     }
 
@@ -158,6 +161,7 @@ def created_seller(app_client: TestClient,
                    auth_service: AuthService,
                    created_account: Mapping[str, Any],
                    seller_data: Mapping[str, Any]):
+    
     response = app_client.post('/sellers/', json=seller_data)
     assert response.status_code == HTTPStatus.CREATED
     seller = response.json()
@@ -190,7 +194,7 @@ def x_user_token(
             **created_account
         }
         x_user_token = auth_service._build_user_token(SellerModel(**created_seller), AccountModel(**account))
-        return x_user_token
+        yield x_user_token
     except Exception as exc:
         raise Exception(f'build_user_token failed: {exc}')
 
@@ -342,8 +346,8 @@ def created_item_data() -> Mapping[str, Any]:
     }
 
 @pytest.fixture
-def created_item_zero_images(app_client: TestClient, item_zero_images: Mapping[str, Any], x_user_token, 
-                             created_seller: Mapping[str, any], override_auth):
+def created_item_zero_images(app_client: TestClient, item_zero_images: Mapping[str, Any], 
+                             created_seller: Mapping[str, any], override_auth, x_user_token):
     response = app_client.post('/ads/', json=item_zero_images)
     assert response.status_code == HTTPStatus.CREATED
     item = response.json()

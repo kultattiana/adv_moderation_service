@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     seller_id INTEGER NOT NULL REFERENCES sellers(seller_id) ON DELETE CASCADE,
     login TEXT NOT NULL,
     password TEXT NOT NULL,
+    salt TEXT DEFAULT NULL,
     is_blocked BOOLEAN DEFAULT FALSE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -10,4 +11,3 @@ CREATE TABLE IF NOT EXISTS accounts (
 
 CREATE INDEX IF NOT EXISTS idx_accounts_login ON accounts(login);
 CREATE INDEX IF NOT EXISTS idx_accounts_password ON accounts(password);
-CREATE INDEX IF NOT EXISTS idx_accounts_is_blocked ON accounts(is_blocked);

@@ -165,8 +165,8 @@ class TestRedisUnit:
         mock_moderation_redis_storage.get_by_task_id.assert_called_once_with(pending_moderation["id"])
         mock_moderation_storage.select_by_task_id.assert_called_once_with(pending_moderation["id"])
         
-        mock_moderation_redis_storage.set_by_task_id.assert_not_called()
-        mock_moderation_redis_storage.set_latest_by_item_id.assert_not_called()
+        mock_moderation_redis_storage.set_by_task_id.assert_called_once()
+        mock_moderation_redis_storage.set_latest_by_item_id.assert_called_once()
 
     
     async def test_update_pending_status(self, pending_moderation):
@@ -497,11 +497,7 @@ class TestModerationRepositoryIntegration:
         assert result.id == mod.id
         assert result.status == "pending"
         
-        cached_task = await repo.moderation_redis_storage.get_by_task_id(mod.id)
-        assert cached_task is None
         
-        cached_latest = await repo.moderation_redis_storage.get_latest_by_item_id(item_id)
-        assert cached_latest is None
 
     async def test_get_by_task_id_db_miss_integration(self):
         repo = ModerationRepository()

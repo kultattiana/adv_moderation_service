@@ -7,11 +7,13 @@ from repositories.moderations import ModerationRepository
 from repositories.accounts import AccountRepository
 from datetime import datetime, timezone
 from utils.hash import generate_salt, verify_password, hash_password
+import time
+from observability.metrics import DB_QUERY_DURATION
 
 @dataclass(frozen = True)
 class SellerPostgresStorage:
 
-    account_repo = AccountRepository()
+    #account_repo = AccountRepository()
 
     async def create(self, 
         username: str,
@@ -25,9 +27,15 @@ class SellerPostgresStorage:
                 '''
         
         async with get_pg_connection(operation="insert") as connection:
-            return dict(await connection.fetchrow(
+
+            start = time.perf_counter()
+            row = await connection.fetchrow(
                 query, username, email, password, is_verified
-            ))
+            )
+            duration = time.perf_counter() - start
+
+            DB_QUERY_DURATION.labels(operation="insert").observe(duration)
+            return dict(row)
     
     async def delete(self, seller_id: int) -> Mapping[str, Any]:
         query = '''
@@ -37,7 +45,12 @@ class SellerPostgresStorage:
         '''
         
         async with get_pg_connection(operation="delete") as connection:
+
+            start = time.perf_counter()
             row = await connection.fetchrow(query, seller_id)
+            duration = time.perf_counter() - start
+
+            DB_QUERY_DURATION.labels(operation="delete").observe(duration)
             
             if row:
                 return dict(row)
@@ -54,7 +67,12 @@ class SellerPostgresStorage:
         '''
         
         async with get_pg_connection(operation="select") as connection:
+
+            start = time.perf_counter()
             row = await connection.fetchrow(query, seller_id)
+            duration = time.perf_counter() - start
+
+            DB_QUERY_DURATION.labels(operation="select").observe(duration)
             
             if row:
                 return dict(row)
@@ -72,7 +90,12 @@ class SellerPostgresStorage:
         '''
 
         async with get_pg_connection(operation="select") as connection:
+
+            start = time.perf_counter()
             row = await connection.fetchrow(query, login, password)
+            duration = time.perf_counter() - start
+
+            DB_QUERY_DURATION.labels(operation="select").observe(duration)
 
             if row:
                 return dict(row)
@@ -89,7 +112,12 @@ class SellerPostgresStorage:
         '''
 
         async with get_pg_connection(operation="select") as connection:
+
+            start = time.perf_counter()
             row = await connection.fetchrow(query, account_id)
+            duration = time.perf_counter() - start
+
+            DB_QUERY_DURATION.labels(operation="select").observe(duration)
 
             if row:
                 return dict(row)
@@ -103,7 +131,13 @@ class SellerPostgresStorage:
         '''
         
         async with get_pg_connection(operation="select") as connection:
+
+            start = time.perf_counter()
             rows = await connection.fetch(query)
+            duration = time.perf_counter() - start
+
+            DB_QUERY_DURATION.labels(operation="select").observe(duration)
+
             return [dict(row) for row in rows]
         
     
@@ -127,7 +161,12 @@ class SellerPostgresStorage:
         '''
 
         async with get_pg_connection(operation="update") as connection:
+
+            start = time.perf_counter()
             row = await connection.fetchrow(query, id, *args)
+            duration = time.perf_counter() - start
+            
+            DB_QUERY_DURATION.labels(operation="update").observe(duration)
 
             if row:
                 return dict(row)
@@ -138,8 +177,6 @@ class SellerPostgresStorage:
 @dataclass(frozen=True)
 class SellerRepository:
     seller_storage: SellerPostgresStorage = SellerPostgresStorage()
-    moderation_repo: ModerationRepository = ModerationRepository()
-    account_repo: AccountRepository = AccountRepository()
     
     async def create(self, username: str,
                             email: str,
@@ -151,13 +188,6 @@ class SellerRepository:
                         email=email,
                         password=password,
                         is_verified=is_verified
-                    )
-        
-        raw_account = await self.account_repo.create(
-                        login=username,
-                        password=password,
-                        seller_id=raw_seller['seller_id'],
-                        is_blocked=False
                     )
         
         return SellerModel(**raw_seller)
@@ -176,12 +206,10 @@ class SellerRepository:
     
     async def update(self, seller_id: int, **changes: Mapping[str, Any]) -> SellerModel:
         raw_seller = await self.seller_storage.update(seller_id, **changes)
-        await self.moderation_repo.invalidate_by_seller_id(seller_id)
         return SellerModel(**raw_seller)
 
     async def delete(self, seller_id: int) -> SellerModel:
         raw_seller = await self.seller_storage.delete(seller_id)
-        await self.moderation_repo.delete_all_by_seller_id(seller_id)
         return SellerModel(**raw_seller)
     
     async def get_many(self) -> Sequence[SellerModel]:
